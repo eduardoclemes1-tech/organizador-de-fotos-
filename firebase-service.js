@@ -1,79 +1,128 @@
 
-/**
- * MOCK FIREBASE SERVICE
- * 
- * Este arquivo simula a funcionalidade do Firebase Auth e Firestore.
- * Em um ambiente de produção real, você substituiria este código 
- * pela inicialização real do SDK do Firebase.
- */
+// Importa as funções do Firebase diretamente do CDN (não precisa instalar nada)
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-const STORAGE_KEY_SESSION = 'firebase_mock_session';
+/**
+ * --- CONFIGURAÇÃO DO FIREBASE ---
+ * 1. Crie um projeto em console.firebase.google.com
+ * 2. Adicione um App Web
+ * 3. Copie as configurações e substitua o objeto abaixo:
+ */
+const firebaseConfig = {
+    apiKey: "SUA_API_KEY_AQUI",
+    authDomain: "SEU_PROJETO.firebaseapp.com",
+    projectId: "SEU_PROJECT_ID",
+    storageBucket: "SEU_PROJETO.appspot.com",
+    messagingSenderId: "SEU_MESSAGING_ID",
+    appId: "SEU_APP_ID"
+};
+
+// Inicializa o Firebase
+let app;
+let authInstance;
+let dbInstance;
+let provider;
+
+try {
+    app = initializeApp(firebaseConfig);
+    authInstance = getAuth(app);
+    dbInstance = getFirestore(app);
+    provider = new GoogleAuthProvider();
+} catch (error) {
+    console.error("Erro ao inicializar Firebase. Verifique se você preencheu a firebaseConfig no arquivo firebase-service.js", error);
+}
+
 const STORAGE_DB_PREFIX = 'firebase_db_user_';
 
-// Simula o objeto de usuário do Google
-const MOCK_USER = {
-    uid: 'user-google-12345',
-    displayName: 'Usuário Demo',
-    email: 'usuario@exemplo.com',
-    photoURL: 'https://lh3.googleusercontent.com/a/default-user=s96-c' // Avatar genérico
-};
+// --- SERVIÇO DE AUTENTICAÇÃO ---
 
 export const auth = {
     currentUser: null,
-    
-    // Listener de estado (Login/Logout)
+
+    // Monitora o estado real da autenticação
     onAuthStateChanged(callback) {
-        // Verifica se há sessão salva ao recarregar a página
-        const savedSession = localStorage.getItem(STORAGE_KEY_SESSION);
-        if (savedSession) {
-            this.currentUser = JSON.parse(savedSession);
+        if (!authInstance) return;
+        
+        firebaseOnAuthStateChanged(authInstance, (user) => {
+            this.currentUser = user;
+            callback(user);
+        });
+    },
+
+    // Abre o Popup oficial do Google para Login
+    async signInWithGoogle() {
+        if (!authInstance) {
+            alert("Firebase não configurado. Edite o arquivo firebase-service.js com suas chaves.");
+            return;
         }
-        callback(this.currentUser);
+        try {
+            const result = await signInWithPopup(authInstance, provider);
+            return result;
+        } catch (error) {
+            console.error("Erro no login Google:", error);
+            throw error;
+        }
     },
 
-    // Simula Login com Google (Popup)
-    signInWithGoogle() {
-        return new Promise((resolve) => {
-            // Simula delay de rede
-            setTimeout(() => {
-                this.currentUser = MOCK_USER;
-                localStorage.setItem(STORAGE_KEY_SESSION, JSON.stringify(this.currentUser));
-                resolve({ user: this.currentUser });
-            }, 800); // 0.8s delay
-        });
-    },
-
-    // Logout
-    signOut() {
-        return new Promise((resolve) => {
-            this.currentUser = null;
-            localStorage.removeItem(STORAGE_KEY_SESSION);
-            resolve();
-        });
+    // Sair da conta
+    async signOut() {
+        if (!authInstance) return;
+        try {
+            await firebaseSignOut(authInstance);
+        } catch (error) {
+            console.error("Erro ao sair:", error);
+        }
     }
 };
 
+// --- SERVIÇO DE BANCO DE DADOS (HÍBRIDO) ---
+// Nota: Aqui mantemos a lógica de salvar no LocalStorage baseada no ID REAL do usuário.
+// Se você quiser salvar na nuvem real (Firestore), descomente as linhas indicadas.
+
 export const db = {
-    // Salva dados específicos do usuário (Simula Firestore)
     async saveUserContent(userId, data) {
+        // --- OPÇÃO 1: LOCALSTORAGE (Por usuário) ---
+        // Mantém os dados no navegador, mas separados por conta Google
         return new Promise((resolve) => {
-            // Simula delay de rede
-            setTimeout(() => {
-                const key = `${STORAGE_DB_PREFIX}${userId}`;
-                localStorage.setItem(key, JSON.stringify(data));
-                resolve(true);
-            }, 300);
+            const key = `${STORAGE_DB_PREFIX}${userId}`;
+            localStorage.setItem(key, JSON.stringify(data));
+            resolve(true);
         });
+
+        // --- OPÇÃO 2: NUVEM REAL (Firestore) ---
+        // Para usar isso, ative o Firestore Database no console do Firebase
+        /*
+        try {
+            await setDoc(doc(dbInstance, "users", userId), { content: data }, { merge: true });
+        } catch (e) {
+            console.error("Erro ao salvar no Firestore", e);
+        }
+        */
     },
 
-    // Carrega dados específicos do usuário
     async loadUserContent(userId) {
+        // --- OPÇÃO 1: LOCALSTORAGE ---
         return new Promise((resolve) => {
-            setTimeout(() => {
-                const key = `${STORAGE_DB_PREFIX}${userId}`;
-                const data = localStorage.getItem(key);
-                resolve(data ? JSON.parse(data) : []);
-            }, 300);
+            const key = `${STORAGE_DB_PREFIX}${userId}`;
+            const data = localStorage.getItem(key);
+            resolve(data ? JSON.parse(data) : []);
         });
+
+        // --- OPÇÃO 2: NUVEM REAL (Firestore) ---
+        /*
+        try {
+            const docRef = doc(dbInstance, "users", userId);
+            const docSnap = await getDoc(docRef);
+            if (docSnap.exists()) {
+                return docSnap.data().content || [];
+            }
+            return [];
+        } catch (e) {
+            console.error("Erro ao ler do Firestore", e);
+            return [];
+        }
+        */
     }
 };
