@@ -1,15 +1,16 @@
-import { GoogleGenAI, Type } from "@google/genai";
+/**
+ * Serviço de IA (Frontend)
+ * Responsável por comunicar com o Backend Seguro.
+ * NÃO contém chaves de API nem lógica direta do Gemini SDK.
+ */
 
-// Inicializa o cliente com a chave da API do ambiente
-// Nota: Em um app real de produção, evite expor chaves no cliente se possível, 
-// mas para este protótipo "lean", usamos diretamente conforme solicitado.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-// Modelo recomendado para tarefas de texto eficientes
-const MODEL_NAME = 'gemini-2.5-flash';
+// URL do Backend
+// NOTA: Ao fazer deploy do backend (Vercel/Render), altere esta URL para o endereço de produção.
+// Exemplo Prod: const API_URL = "https://seu-backend-app.onrender.com/api/generate-content";
+const API_URL = "http://localhost:3000/api/generate-content";
 
 /**
- * Função para gerar conteúdo baseado no contexto do vídeo.
+ * Função para solicitar a geração de conteúdo ao backend.
  * @param {string} videoContext - Descrição textual ou título do vídeo.
  * @returns {Promise<{caption: string, hashtags: string[]}>}
  */
@@ -19,47 +20,29 @@ export async function generateContent(videoContext) {
     }
 
     try {
-        // Definição do Schema para garantir que o Gemini retorne JSON estruturado
-        const responseSchema = {
-            type: Type.OBJECT,
-            properties: {
-                caption: {
-                    type: Type.STRING,
-                    description: "Uma legenda engajadora para redes sociais (Instagram/TikTok), usando emojis e quebra de linha.",
-                },
-                hashtags: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING },
-                    description: "Uma lista de 5 a 10 hashtags relevantes e de alto alcance.",
-                }
+        const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
             },
-            required: ["caption", "hashtags"],
-        };
-
-        const result = await ai.models.generateContent({
-            model: MODEL_NAME,
-            contents: [
-                {
-                    role: "user",
-                    parts: [
-                        { text: `Atue como um especialista em Social Media Marketing. Crie conteúdo para um vídeo com o seguinte contexto: "${videoContext}". O tom deve ser autêntico e convidar à interação.` }
-                    ]
-                }
-            ],
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: responseSchema,
-                temperature: 0.7, // Criatividade balanceada
-            }
+            body: JSON.stringify({ videoReference: videoContext })
         });
 
-        // O SDK já retorna o texto, mas precisamos fazer o parse pois responseMimeType é JSON
-        const jsonResponse = JSON.parse(result.text);
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
+        }
+
+        const data = await response.json();
         
-        return jsonResponse;
+        // Garante que o retorno tenha o formato esperado pela UI
+        return {
+            caption: data.caption || "",
+            hashtags: data.hashtags || []
+        };
 
     } catch (error) {
-        console.error("Erro ao chamar Gemini API:", error);
+        console.error("Erro ao comunicar com o Backend de IA:", error);
         throw error;
     }
 }
