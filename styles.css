@@ -2,6 +2,8 @@
 :root {
     --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
+    --ai-color: #7c3aed; /* Roxo para IA */
+    --ai-hover: #6d28d9;
     --bg-color: #f8fafc;
     --card-bg: #ffffff;
     --text-main: #1e293b;
@@ -337,12 +339,58 @@ input:focus, textarea:focus {
     line-height: 1.2;
 }
 
-/* Coluna Legenda */
+/* --- Coluna Legenda & IA --- */
+
+.ai-context-box {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 0.75rem;
+}
+
+.input-context {
+    flex: 1;
+    border: 1px solid #c4b5fd; /* Roxo suave */
+}
+
+.input-context:focus {
+    border-color: var(--ai-color);
+    ring: 2px solid var(--ai-color);
+}
+
+.btn-ai-generate {
+    background: linear-gradient(135deg, var(--ai-color) 0%, #a855f7 100%);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s, transform 0.1s;
+    box-shadow: 0 2px 4px rgba(124, 58, 237, 0.2);
+}
+
+.btn-ai-generate:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+}
+
+.btn-ai-generate:disabled {
+    background: #cbd5e1;
+    cursor: not-allowed;
+    transform: none;
+}
+
 .output-caption {
-    min-height: 150px; 
-    height: 100%;
+    min-height: 100px; /* Reduzi um pouco pois agora temos o input acima */
+    height: auto;
     resize: vertical;
     line-height: 1.6;
+}
+
+.caption-container {
+    height: calc(100% - 50px);
 }
 
 /* Coluna Hashtags */

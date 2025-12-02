@@ -13,8 +13,9 @@ const userAvatar = document.getElementById('user-avatar');
 const userName = document.getElementById('user-name');
 const btnLogout = document.getElementById('btn-logout');
 
-// Importar serviços de Mock do Firebase
+// Importar serviços
 import { auth, db as firestore } from './firebase-service.js';
+import { generateContent } from './ai-service.js';
 
 // Chaves e Configurações Globais
 const DB_NAME = 'VideoManagerDB';
@@ -24,7 +25,6 @@ const DB_STORE_NAME = 'media_content';
 let currentUser = null; // Armazena o usuário logado atualmente
 
 // --- CAMADA DE BANCO DE DADOS (IndexedDB para Arquivos Grandes) ---
-// Mantemos IndexedDB localmente pois Firebase Storage é complexo para simular sem backend real.
 let db;
 
 function initDB() {
@@ -143,6 +143,7 @@ async function saveContentToCloud() {
     cards.forEach(card => {
         const id = card.getAttribute('data-id');
         const dateInput = card.querySelector('.input-date');
+        const contextInput = card.querySelector('.input-context');
         const captionInput = card.querySelector('.output-caption');
         const hashtagInput = card.querySelector('.input-hashtags');
         
@@ -152,6 +153,7 @@ async function saveContentToCloud() {
         const contentBlock = {
             id: id,
             date: dateInput.value,
+            context: contextInput.value,
             legend: captionInput.value,
             hashtags: hashtagInput.value,
             videoReference: videoLabel ? videoLabel.innerText : "",
@@ -199,6 +201,8 @@ async function createNewCard(initialData = null) {
 
     // Seleção de Elementos
     const dateInput = card.querySelector('.input-date');
+    const contextInput = card.querySelector('.input-context');
+    const btnAiGenerate = card.querySelector('.btn-ai-generate');
     const captionInput = card.querySelector('.output-caption');
     const hashtagInput = card.querySelector('.input-hashtags');
     const hashtagError = card.querySelector('.hashtag-error');
@@ -223,6 +227,7 @@ async function createNewCard(initialData = null) {
 
     if (initialData) {
         dateInput.value = initialData.date || getTodayDate();
+        contextInput.value = initialData.context || "";
         captionInput.value = initialData.legend || "";
         hashtagInput.value = initialData.hashtags || "";
         
@@ -251,11 +256,51 @@ async function createNewCard(initialData = null) {
         dateInput.value = getTodayDate();
     }
 
-    // Eventos
-    [dateInput, captionInput].forEach(input => {
+    // --- EVENTOS ---
+
+    // 1. Inputs de Texto
+    [dateInput, contextInput, captionInput].forEach(input => {
         input.addEventListener('input', () => saveContentToCloud());
     });
 
+    // 2. Botão IA
+    btnAiGenerate.addEventListener('click', async () => {
+        const context = contextInput.value.trim();
+        if (!context) {
+            alert("Por favor, preencha o campo 'Sobre o que é este vídeo?' antes de gerar.");
+            contextInput.focus();
+            return;
+        }
+
+        // Estado de Carregamento
+        const originalText = btnAiGenerate.innerHTML;
+        btnAiGenerate.disabled = true;
+        btnAiGenerate.innerHTML = `⏳ Criando...`;
+        captionInput.placeholder = "A IA está pensando...";
+
+        try {
+            const result = await generateContent(context);
+            
+            // Preenche os campos
+            captionInput.value = result.caption;
+            // Verifica se hashtags é array ou string
+            const tags = Array.isArray(result.hashtags) ? result.hashtags.join(' ') : result.hashtags;
+            hashtagInput.value = tags;
+            
+            showToast("✨ Conteúdo gerado com sucesso!");
+            saveContentToCloud(); // Salva automático
+
+        } catch (error) {
+            console.error("Erro IA:", error);
+            showToast("❌ Erro ao gerar conteúdo.");
+            captionInput.value = "Erro ao conectar com a IA. Verifique sua chave API.";
+        } finally {
+            btnAiGenerate.disabled = false;
+            btnAiGenerate.innerHTML = originalText;
+        }
+    });
+
+    // 3. Hashtags
     hashtagInput.addEventListener('input', (e) => {
         const text = e.target.value;
         const tags = text.trim().split(/\s+/).filter(t => t.length > 0);
@@ -270,6 +315,7 @@ async function createNewCard(initialData = null) {
         saveContentToCloud();
     });
 
+    // 4. Mídia (Video)
     videoInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -278,6 +324,11 @@ async function createNewCard(initialData = null) {
             videoPreview.style.display = 'block';
             videoPlaceholder.style.display = 'none';
             videoNameLabel.innerText = "Video: " + file.name;
+            
+            // Sugere o nome do arquivo como contexto se estiver vazio
+            if (!contextInput.value) {
+                contextInput.value = file.name.split('.')[0].replace(/-/g, ' ');
+            }
 
             try {
                 showToast("⏳ Salvando vídeo localmente...");
@@ -291,6 +342,7 @@ async function createNewCard(initialData = null) {
         }
     });
 
+    // 5. Mídia (Thumb)
     thumbInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -312,6 +364,7 @@ async function createNewCard(initialData = null) {
         }
     });
 
+    // 6. Deletar
     btnDelete.addEventListener('click', async () => {
         if(confirm('Tem certeza que deseja remover este conteúdo?')) {
             card.remove();
@@ -324,6 +377,7 @@ async function createNewCard(initialData = null) {
     
     if (!initialData) {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        contextInput.focus(); // Foca no contexto para incentivar uso
         saveContentToCloud();
     }
 }
