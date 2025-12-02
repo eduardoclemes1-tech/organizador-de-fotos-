@@ -19,7 +19,7 @@
 
     <header>
         <h1>Organizador de Conteúdo</h1>
-        <p>Planeje, gere legendas com IA e organize seus vídeos.</p>
+        <p>Planeje e organize seus vídeos (Salvo automaticamente).</p>
     </header>
 
     <main>
@@ -45,27 +45,26 @@
             </div>
 
             <div class="col-video">
-                <label>Vídeo / Contexto</label>
+                <label>Vídeo</label>
                 <div class="video-uploader">
                     <input type="file" accept="video/*" class="input-video-file">
                     <div class="video-preview-placeholder">📂 Escolher Vídeo</div>
                     <video class="video-preview" controls style="display:none;"></video>
                 </div>
-                <textarea class="input-context" placeholder="Sobre o que é o vídeo? (Para a IA)"></textarea>
             </div>
 
             <div class="col-caption">
-                <label>Legenda (IA)</label>
+                <label>Legenda</label>
                 <div class="caption-container">
-                    <textarea class="output-caption" placeholder="A legenda gerada aparecerá aqui..." readonly></textarea>
-                    <button class="btn-generate">✨ Gerar com IA</button>
+                    <textarea class="output-caption" placeholder="Escreva sua legenda aqui..."></textarea>
                 </div>
             </div>
 
             <div class="col-hashtags">
-                <label>Hashtags</label>
+                <label>Hashtags (Max 5)</label>
                 <div class="hashtags-container">
-                    <div class="output-hashtags">#aguardando #ia</div>
+                    <input type="text" class="input-hashtags" placeholder="#exemplo #video ...">
+                    <small class="hashtag-error" style="display: none; color: #ef4444; font-size: 0.8rem; margin-top: 4px;">Máximo de 5 hashtags permitido.</small>
                 </div>
                 <button class="btn-delete" title="Remover card">🗑️</button>
             </div>

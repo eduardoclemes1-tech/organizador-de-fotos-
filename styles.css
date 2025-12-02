@@ -8,6 +8,7 @@
     --border-color: #e2e8f0;
     --radius: 12px;
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+    --error-color: #ef4444;
 }
 
 * {
@@ -18,7 +19,7 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    background-color: --bg-color;
+    background-color: var(--bg-color);
     color: var(--text-main);
     padding: 2rem;
     line-height: 1.5;
@@ -172,62 +173,22 @@ input:focus, textarea:focus {
     z-index: 2;
 }
 
-.input-context {
-    min-height: 60px;
-    resize: vertical;
-}
-
 /* Coluna Legenda */
 .output-caption {
     min-height: 150px;
     resize: vertical;
-    background-color: #f1f5f9;
-    color: #334155;
     line-height: 1.6;
-    border: none;
-}
-
-.btn-generate {
-    margin-top: 0.5rem;
-    width: 100%;
-    padding: 0.5rem;
-    background-color: #fff;
-    border: 1px solid var(--primary-color);
-    color: var(--primary-color);
-    border-radius: 6px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-generate:hover:not(:disabled) {
-    background-color: var(--primary-color);
-    color: white;
-}
-
-.btn-generate:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background-color: #e2e8f0;
-    border-color: #e2e8f0;
-    color: #94a3b8;
 }
 
 /* Coluna Hashtags */
 .hashtags-container {
-    background-color: #f1f5f9;
-    padding: 0.75rem;
     border-radius: 6px;
     min-height: 100px;
 }
 
-.output-hashtags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-    font-size: 0.85rem;
-    color: var(--primary-color);
-    font-weight: 500;
+.input-hashtags.error {
+    border-color: var(--error-color);
+    background-color: #fef2f2;
 }
 
 .btn-delete {
@@ -243,20 +204,5 @@ input:focus, textarea:focus {
 
 .btn-delete:hover {
     opacity: 1;
-}
-
-/* Animação de Loading */
-.loading-spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    border-top-color: #fff;
-    animation: spin 1s ease-in-out infinite;
-    margin-left: 5px;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
+    color: var(--error-color);
 }
