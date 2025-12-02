@@ -19,11 +19,11 @@
 
     <header>
         <h1>Organizador de Conteúdo</h1>
-        <p>Planeje, gere legendas com IA e organize seus vídeos.</p>
+        <p>Planeje e organize seus vídeos manualmente.</p>
     </header>
 
     <main>
-        <!-- Botão Novo (Conforme esboço) -->
+        <!-- Botão Novo -->
         <section class="actions">
             <button id="btn-new" class="btn-primary">
                 <span class="icon">+</span> Novo Conteúdo
@@ -36,7 +36,7 @@
         </section>
     </main>
 
-    <!-- Template para o Card de Conteúdo (Oculto) -->
+    <!-- Template para o Card de Conteúdo -->
     <template id="card-template">
         <article class="content-card">
             <div class="col-date">
@@ -45,28 +45,22 @@
             </div>
 
             <div class="col-video">
-                <label>Vídeo / Contexto</label>
+                <label>Vídeo</label>
                 <div class="video-uploader">
                     <input type="file" accept="video/*" class="input-video-file">
                     <div class="video-preview-placeholder">📂 Escolher Vídeo</div>
                     <video class="video-preview" controls style="display:none;"></video>
                 </div>
-                <textarea class="input-context" placeholder="Sobre o que é o vídeo? (Para a IA)"></textarea>
             </div>
 
             <div class="col-caption">
-                <label>Legenda (IA)</label>
-                <div class="caption-container">
-                    <textarea class="output-caption" placeholder="A legenda gerada aparecerá aqui..." readonly></textarea>
-                    <button class="btn-generate">✨ Gerar com IA</button>
-                </div>
+                <label>Legenda</label>
+                <textarea class="output-caption" placeholder="Escreva sua legenda aqui..."></textarea>
             </div>
 
             <div class="col-hashtags">
                 <label>Hashtags</label>
-                <div class="hashtags-container">
-                    <div class="output-hashtags">#aguardando #ia</div>
-                </div>
+                <textarea class="input-hashtags" placeholder="#exemplo #viral"></textarea>
                 <button class="btn-delete" title="Remover card">🗑️</button>
             </div>
         </article>
