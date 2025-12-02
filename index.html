@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Organizador de Conteúdo de Vídeo</title>
+    <link rel="stylesheet" href="styles.css">
+    <!-- Importação de fontes para um visual clean -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script type="importmap">
+{
+  "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+  }
+}
+</script>
+</head>
+<body>
+
+    <header>
+        <h1>Organizador de Conteúdo</h1>
+        <p>Planeje, gere legendas com IA e organize seus vídeos.</p>
+    </header>
+
+    <main>
+        <!-- Botão Novo (Conforme esboço) -->
+        <section class="actions">
+            <button id="btn-new" class="btn-primary">
+                <span class="icon">+</span> Novo Conteúdo
+            </button>
+        </section>
+
+        <!-- Container da Lista de Conteúdos -->
+        <section id="content-list" class="content-grid">
+            <!-- Os cards serão inseridos aqui via JavaScript -->
+        </section>
+    </main>
+
+    <!-- Template para o Card de Conteúdo (Oculto) -->
+    <template id="card-template">
+        <article class="content-card">
+            <div class="col-date">
+                <label>Data</label>
+                <input type="date" class="input-date">
+            </div>
+
+            <div class="col-video">
+                <label>Vídeo / Contexto</label>
+                <div class="video-uploader">
+                    <input type="file" accept="video/*" class="input-video-file">
+                    <div class="video-preview-placeholder">📂 Escolher Vídeo</div>
+                    <video class="video-preview" controls style="display:none;"></video>
+                </div>
+                <textarea class="input-context" placeholder="Sobre o que é o vídeo? (Para a IA)"></textarea>
+            </div>
+
+            <div class="col-caption">
+                <label>Legenda (IA)</label>
+                <div class="caption-container">
+                    <textarea class="output-caption" placeholder="A legenda gerada aparecerá aqui..." readonly></textarea>
+                    <button class="btn-generate">✨ Gerar com IA</button>
+                </div>
+            </div>
+
+            <div class="col-hashtags">
+                <label>Hashtags</label>
+                <div class="hashtags-container">
+                    <div class="output-hashtags">#aguardando #ia</div>
+                </div>
+                <button class="btn-delete" title="Remover card">🗑️</button>
+            </div>
+        </article>
+    </template>
+
+    <script type="module" src="app.js"></script>
+</body>
+</html>
