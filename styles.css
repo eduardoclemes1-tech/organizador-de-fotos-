@@ -393,6 +393,33 @@ input:focus, textarea:focus {
     height: calc(100% - 50px);
 }
 
+/* Novos estilos para instruções IA */
+.label-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 0.5rem;
+}
+
+.helper-text {
+    font-size: 0.75rem;
+    color: var(--primary-color);
+    font-weight: 500;
+    margin-left: auto;
+}
+
+.input-error {
+    border-color: var(--error-color) !important;
+    background-color: #fef2f2;
+    animation: shake 0.4s ease-in-out;
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+}
+
 /* Coluna Hashtags */
 .hashtags-container {
     border-radius: 6px;

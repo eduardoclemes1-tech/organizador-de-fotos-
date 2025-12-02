@@ -267,8 +267,11 @@ async function createNewCard(initialData = null) {
     btnAiGenerate.addEventListener('click', async () => {
         const context = contextInput.value.trim();
         if (!context) {
-            alert("Por favor, preencha o campo 'Sobre o que é este vídeo?' antes de gerar.");
+            // Feedback visual melhorado em vez de alert
+            showToast("⚠️ O que devo escrever? Digite um tema no campo acima.");
             contextInput.focus();
+            contextInput.classList.add('input-error');
+            setTimeout(() => contextInput.classList.remove('input-error'), 500);
             return;
         }
 
