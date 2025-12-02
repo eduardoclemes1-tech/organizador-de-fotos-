@@ -5,13 +5,12 @@ const contentList = document.getElementById('content-list');
 const template = document.getElementById('card-template');
 
 // Chaves e Configurações
-const STORAGE_KEY_DATA = 'contentOrganizerData'; // Conforme solicitado no prompt
+const STORAGE_KEY_DATA = 'contentOrganizerData'; 
 const DB_NAME = 'VideoManagerDB';
-const DB_VERSION = 1;
-const DB_STORE_NAME = 'videos';
+const DB_VERSION = 2; // Incrementado versão para garantir atualização se necessário
+const DB_STORE_NAME = 'media_content'; // Renomeado para refletir que guarda video e imagem
 
 // --- CAMADA DE BANCO DE DADOS (IndexedDB) ---
-// Mantido para garantir que o vídeo seja salvo de verdade, superando a limitação do LocalStorage.
 
 let db;
 
@@ -38,27 +37,37 @@ function initDB() {
     });
 }
 
-async function saveVideoToDB(id, file) {
+// Salva arquivos de mídia (Video ou Thumbnail)
+// Tipo pode ser 'video' ou 'thumbnail'
+async function saveMediaToDB(id, type, file) {
     if (!db) await initDB();
     
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         const transaction = db.transaction([DB_STORE_NAME], 'readwrite');
         const store = transaction.objectStore(DB_STORE_NAME);
         
-        const item = {
-            id: id,
-            file: file,
-            timestamp: new Date().getTime()
+        // Primeiro, tentamos obter o registro existente para não sobrescrever o outro arquivo
+        const getRequest = store.get(id);
+
+        getRequest.onsuccess = (event) => {
+            let data = event.target.result || { id: id, timestamp: new Date().getTime() };
+            
+            // Atualiza apenas o campo específico
+            if (type === 'video') data.video = file;
+            if (type === 'thumbnail') data.thumbnail = file;
+            
+            data.timestamp = new Date().getTime(); // Atualiza timestamp
+
+            const putRequest = store.put(data);
+            putRequest.onsuccess = () => resolve();
+            putRequest.onerror = (e) => reject(e);
         };
 
-        const request = store.put(item);
-
-        request.onsuccess = () => resolve();
-        request.onerror = (e) => reject(e);
+        getRequest.onerror = (e) => reject(e);
     });
 }
 
-async function getVideoFromDB(id) {
+async function getMediaFromDB(id) {
     if (!db) await initDB();
 
     return new Promise((resolve, reject) => {
@@ -68,13 +77,13 @@ async function getVideoFromDB(id) {
 
         request.onsuccess = (event) => {
             const result = event.target.result;
-            resolve(result ? result.file : null);
+            resolve(result || null); // Retorna objeto {id, video, thumbnail} ou null
         };
         request.onerror = (e) => reject(e);
     });
 }
 
-async function deleteVideoFromDB(id) {
+async function deleteMediaFromDB(id) {
     if (!db) await initDB();
 
     return new Promise((resolve, reject) => {
@@ -104,6 +113,7 @@ function getTodayDate() {
 function showToast(message) {
     let toast = document.getElementById('toast-notification');
     if (!toast) {
+        // Fallback caso html não tenha o elemento
         toast = document.createElement('div');
         toast.id = 'toast-notification';
         document.body.appendChild(toast);
@@ -115,10 +125,6 @@ function showToast(message) {
 
 // --- PERSISTÊNCIA DE DADOS (LocalStorage) ---
 
-/**
- * Salva o estado atual da aplicação no LocalStorage.
- * Captura os dados diretamente do DOM para garantir sincronia.
- */
 function saveContentToLocalStorage() {
     const cards = contentList.querySelectorAll('.content-card');
     const dataArray = [];
@@ -128,15 +134,18 @@ function saveContentToLocalStorage() {
         const dateInput = card.querySelector('.input-date');
         const captionInput = card.querySelector('.output-caption');
         const hashtagInput = card.querySelector('.input-hashtags');
-        const fileNameLabel = card.querySelector('.video-filename-label');
+        
+        // Labels de referência (nomes dos arquivos)
+        const videoLabel = card.querySelector('.video-filename-label');
+        const thumbLabel = card.querySelector('.thumb-filename-label');
 
-        // Estrutura do objeto conforme solicitado
         const contentBlock = {
             id: id,
             date: dateInput.value,
-            legend: captionInput.value, // Renomeado para 'legend' conforme prompt
+            legend: captionInput.value,
             hashtags: hashtagInput.value,
-            videoReference: fileNameLabel.innerText || "" // Armazena o nome do arquivo
+            videoReference: videoLabel ? videoLabel.innerText : "",
+            thumbnailReference: thumbLabel ? thumbLabel.innerText : ""
         };
 
         dataArray.push(contentBlock);
@@ -146,9 +155,6 @@ function saveContentToLocalStorage() {
     showToast("💾 Alterações salvas");
 }
 
-/**
- * Carrega os dados do LocalStorage e renderiza a interface.
- */
 async function loadContentFromLocalStorage() {
     try {
         const savedData = localStorage.getItem(STORAGE_KEY_DATA);
@@ -157,16 +163,15 @@ async function loadContentFromLocalStorage() {
             const dataArray = JSON.parse(savedData);
             
             if (Array.isArray(dataArray) && dataArray.length > 0) {
-                // Inverte loop para manter a ordem visual correta ao usar prepend
+                // Inverte loop para manter a ordem visual correta (append vs prepend)
+                // Como createNewCard usa prepend, iteramos do ultimo para o primeiro para manter a ordem salva
                 for (let i = dataArray.length - 1; i >= 0; i--) {
                     await createNewCard(dataArray[i]);
                 }
             } else {
-                // Se array vazio, cria um card novo
                 createNewCard(); 
             }
         } else {
-            // Se nenhum dado salvo, inicia com um card vazio
             createNewCard();
         }
     } catch (error) {
@@ -181,7 +186,6 @@ async function createNewCard(initialData = null) {
     const clone = template.content.cloneNode(true);
     const card = clone.querySelector('.content-card');
     
-    // Gera ID ou usa o existente
     const cardId = initialData ? initialData.id : generateUUID();
     card.setAttribute('data-id', cardId);
 
@@ -192,55 +196,66 @@ async function createNewCard(initialData = null) {
     const hashtagError = card.querySelector('.hashtag-error');
     const btnDelete = card.querySelector('.btn-delete');
     
-    // Elementos de Vídeo
-    const fileInput = card.querySelector('.input-video-file');
+    // Elementos de Mídia
+    const videoInput = card.querySelector('.input-video-file');
     const videoPreview = card.querySelector('.video-preview');
-    const placeholder = card.querySelector('.video-preview-placeholder');
+    const videoPlaceholder = card.querySelector('.video-uploader .preview-placeholder');
 
-    // Label para nome do arquivo (Video Reference)
-    let fileNameLabel = document.createElement('small');
-    fileNameLabel.className = 'video-filename-label';
-    fileNameLabel.style.display = 'block';
-    fileNameLabel.style.marginTop = '5px';
-    fileNameLabel.style.color = '#64748b';
-    card.querySelector('.video-uploader').after(fileNameLabel);
+    const thumbInput = card.querySelector('.input-thumb-file');
+    const thumbPreview = card.querySelector('.thumb-preview');
+    const thumbPlaceholder = card.querySelector('.thumb-uploader .preview-placeholder');
 
-    // Preencher dados iniciais se existirem (Load)
+    // Labels para nome dos arquivos
+    let videoNameLabel = document.createElement('small');
+    videoNameLabel.className = 'filename-label video-filename-label';
+    card.querySelector('.video-uploader').after(videoNameLabel);
+
+    let thumbNameLabel = document.createElement('small');
+    thumbNameLabel.className = 'filename-label thumb-filename-label';
+    card.querySelector('.thumb-uploader').after(thumbNameLabel);
+
+    // Preencher dados iniciais
     if (initialData) {
         dateInput.value = initialData.date || getTodayDate();
-        captionInput.value = initialData.legend || ""; // Mapeando 'legend'
+        captionInput.value = initialData.legend || "";
         hashtagInput.value = initialData.hashtags || "";
         
-        if(initialData.videoReference) {
-            fileNameLabel.innerText = initialData.videoReference;
-        }
+        if(initialData.videoReference) videoNameLabel.innerText = initialData.videoReference;
+        if(initialData.thumbnailReference) thumbNameLabel.innerText = initialData.thumbnailReference;
 
-        // Tenta recuperar o arquivo real do IndexedDB (Feature Extra)
+        // Recuperar arquivos reais do IndexedDB
         try {
-            const videoFile = await getVideoFromDB(cardId);
-            if (videoFile) {
-                const url = URL.createObjectURL(videoFile);
-                videoPreview.src = url;
-                videoPreview.style.display = 'block';
-                placeholder.style.display = 'none';
+            const mediaRecord = await getMediaFromDB(cardId);
+            if (mediaRecord) {
+                // Configurar preview de Vídeo
+                if (mediaRecord.video || mediaRecord.file) { // .file é suporte legado
+                    const vidBlob = mediaRecord.video || mediaRecord.file;
+                    videoPreview.src = URL.createObjectURL(vidBlob);
+                    videoPreview.style.display = 'block';
+                    videoPlaceholder.style.display = 'none';
+                }
+                // Configurar preview de Thumbnail
+                if (mediaRecord.thumbnail) {
+                    thumbPreview.src = URL.createObjectURL(mediaRecord.thumbnail);
+                    thumbPreview.style.display = 'block';
+                    thumbPlaceholder.style.display = 'none';
+                }
             }
         } catch (error) {
-            console.error("Erro ao recuperar vídeo do DB:", error);
+            console.error("Erro ao recuperar mídia do DB:", error);
         }
     } else {
-        // Padrão para novos cards
         dateInput.value = getTodayDate();
     }
 
-    // --- EVENTOS E GATILHOS DE SALVAMENTO ---
+    // --- EVENTOS ---
 
-    // 1. Salvar Texto ao digitar
-    const inputsToSave = [dateInput, captionInput];
-    inputsToSave.forEach(input => {
+    // 1. Salvar Texto
+    [dateInput, captionInput].forEach(input => {
         input.addEventListener('input', saveContentToLocalStorage);
     });
 
-    // 2. Validação e Salvamento de Hashtags
+    // 2. Hashtags
     hashtagInput.addEventListener('input', (e) => {
         const text = e.target.value;
         const tags = text.trim().split(/\s+/).filter(t => t.length > 0);
@@ -256,20 +271,18 @@ async function createNewCard(initialData = null) {
     });
 
     // 3. Upload de Vídeo
-    fileInput.addEventListener('change', async (e) => {
+    videoInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-            // Preview
             const url = URL.createObjectURL(file);
             videoPreview.src = url;
             videoPreview.style.display = 'block';
-            placeholder.style.display = 'none';
-            fileNameLabel.innerText = "Arquivo: " + file.name;
+            videoPlaceholder.style.display = 'none';
+            videoNameLabel.innerText = "Video: " + file.name;
 
-            // Salvar Vídeo Real (IndexedDB) e Metadados (LocalStorage)
             try {
                 showToast("⏳ Salvando vídeo...");
-                await saveVideoToDB(cardId, file);
+                await saveMediaToDB(cardId, 'video', file);
                 saveContentToLocalStorage(); 
                 showToast("✅ Vídeo salvo!");
             } catch (err) {
@@ -279,19 +292,39 @@ async function createNewCard(initialData = null) {
         }
     });
 
-    // 4. Exclusão
-    btnDelete.addEventListener('click', async () => {
-        if(confirm('Tem certeza que deseja remover este conteúdo?')) {
-            card.remove();
-            await deleteVideoFromDB(cardId); // Limpa DB
-            saveContentToLocalStorage(); // Atualiza LocalStorage
+    // 4. Upload de Thumbnail
+    thumbInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            const url = URL.createObjectURL(file);
+            thumbPreview.src = url;
+            thumbPreview.style.display = 'block';
+            thumbPlaceholder.style.display = 'none';
+            thumbNameLabel.innerText = "Capa: " + file.name;
+
+            try {
+                showToast("⏳ Salvando capa...");
+                await saveMediaToDB(cardId, 'thumbnail', file);
+                saveContentToLocalStorage();
+                showToast("✅ Capa salva!");
+            } catch (err) {
+                console.error(err);
+                showToast("❌ Erro ao salvar capa.");
+            }
         }
     });
 
-    // Adiciona ao DOM
+    // 5. Exclusão
+    btnDelete.addEventListener('click', async () => {
+        if(confirm('Tem certeza que deseja remover este conteúdo?')) {
+            card.remove();
+            await deleteMediaFromDB(cardId);
+            saveContentToLocalStorage();
+        }
+    });
+
     contentList.prepend(card);
     
-    // Se for um card criado manualmente pelo botão, foca e salva
     if (!initialData) {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
         saveContentToLocalStorage();
@@ -300,9 +333,8 @@ async function createNewCard(initialData = null) {
 
 // Inicialização
 document.addEventListener('DOMContentLoaded', async () => {
-    await initDB(); // Prepara o banco de vídeos
-    await loadContentFromLocalStorage(); // Carrega a interface
+    await initDB();
+    await loadContentFromLocalStorage();
 });
 
-// Listener do Botão Novo
 btnNew.addEventListener('click', () => createNewCard());

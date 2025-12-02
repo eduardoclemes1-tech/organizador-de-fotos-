@@ -36,6 +36,9 @@
         </section>
     </main>
 
+    <!-- Notificação Toast -->
+    <div id="toast-notification">Salvo com sucesso</div>
+
     <!-- Template para o Card de Conteúdo (Oculto) -->
     <template id="card-template">
         <article class="content-card">
@@ -45,12 +48,21 @@
             </div>
 
             <div class="col-video">
-                <label>Vídeo</label>
-                <div class="video-uploader">
+                <label>Vídeo Principal</label>
+                <div class="media-uploader video-uploader">
                     <input type="file" accept="video/*" class="input-video-file">
-                    <div class="video-preview-placeholder">📂 Escolher Vídeo</div>
-                    <video class="video-preview" controls style="display:none;"></video>
+                    <div class="preview-placeholder">🎥 Escolher Vídeo</div>
+                    <video class="media-preview video-preview" controls style="display:none;"></video>
                 </div>
+                <!-- Label para nome do arquivo é inserido via JS aqui -->
+
+                <label style="margin-top: 1rem; display:block;">Thumbnail (Capa)</label>
+                <div class="media-uploader thumb-uploader">
+                    <input type="file" accept="image/*" class="input-thumb-file">
+                    <div class="preview-placeholder">🖼️ Escolher Capa</div>
+                    <img class="media-preview thumb-preview" style="display:none;">
+                </div>
+                <!-- Label para nome da imagem é inserido via JS aqui -->
             </div>
 
             <div class="col-caption">
