@@ -1,3 +1,4 @@
+
 :root {
     --primary-color: #2563eb;
     --primary-hover: #1d4ed8;
@@ -9,6 +10,7 @@
     --radius: 12px;
     --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
     --error-color: #ef4444;
+    --success-color: #10b981;
 }
 
 * {
@@ -143,7 +145,7 @@ input:focus, textarea:focus {
     cursor: pointer;
     margin-bottom: 0.5rem;
     position: relative;
-    min-height: 120px;
+    min-height: 150px;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -168,9 +170,15 @@ input:focus, textarea:focus {
 
 .video-preview {
     max-width: 100%;
-    max-height: 150px;
+    max-height: 200px;
     border-radius: 4px;
     z-index: 2;
+    background: #000;
+}
+
+.video-filename-label {
+    word-break: break-all;
+    font-size: 0.8rem;
 }
 
 /* Coluna Legenda */
@@ -205,4 +213,29 @@ input:focus, textarea:focus {
 .btn-delete:hover {
     opacity: 1;
     color: var(--error-color);
+}
+
+/* Toast Notification */
+#toast-notification {
+    visibility: hidden;
+    min-width: 250px;
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 8px;
+    padding: 16px;
+    position: fixed;
+    z-index: 99;
+    right: 30px;
+    bottom: 30px;
+    font-size: 14px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: opacity 0.3s, bottom 0.3s;
+}
+
+#toast-notification.show {
+    visibility: visible;
+    opacity: 1;
+    bottom: 30px;
 }
