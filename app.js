@@ -4,14 +4,27 @@ const btnNew = document.getElementById('btn-new');
 const contentList = document.getElementById('content-list');
 const template = document.getElementById('card-template');
 
-// Chaves e Configurações
-const STORAGE_KEY_DATA = 'contentOrganizerData'; 
+// Elementos de Login e Perfil
+const loginScreen = document.getElementById('login-screen');
+const appContent = document.getElementById('app-content');
+const btnLoginGoogle = document.getElementById('btn-login-google');
+const userProfile = document.getElementById('user-profile');
+const userAvatar = document.getElementById('user-avatar');
+const userName = document.getElementById('user-name');
+const btnLogout = document.getElementById('btn-logout');
+
+// Importar serviços de Mock do Firebase
+import { auth, db as firestore } from './firebase-service.js';
+
+// Chaves e Configurações Globais
 const DB_NAME = 'VideoManagerDB';
-const DB_VERSION = 2; // Incrementado versão para garantir atualização se necessário
-const DB_STORE_NAME = 'media_content'; // Renomeado para refletir que guarda video e imagem
+const DB_VERSION = 2;
+const DB_STORE_NAME = 'media_content';
 
-// --- CAMADA DE BANCO DE DADOS (IndexedDB) ---
+let currentUser = null; // Armazena o usuário logado atualmente
 
+// --- CAMADA DE BANCO DE DADOS (IndexedDB para Arquivos Grandes) ---
+// Mantemos IndexedDB localmente pois Firebase Storage é complexo para simular sem backend real.
 let db;
 
 function initDB() {
@@ -38,7 +51,6 @@ function initDB() {
 }
 
 // Salva arquivos de mídia (Video ou Thumbnail)
-// Tipo pode ser 'video' ou 'thumbnail'
 async function saveMediaToDB(id, type, file) {
     if (!db) await initDB();
     
@@ -46,17 +58,15 @@ async function saveMediaToDB(id, type, file) {
         const transaction = db.transaction([DB_STORE_NAME], 'readwrite');
         const store = transaction.objectStore(DB_STORE_NAME);
         
-        // Primeiro, tentamos obter o registro existente para não sobrescrever o outro arquivo
         const getRequest = store.get(id);
 
         getRequest.onsuccess = (event) => {
             let data = event.target.result || { id: id, timestamp: new Date().getTime() };
             
-            // Atualiza apenas o campo específico
             if (type === 'video') data.video = file;
             if (type === 'thumbnail') data.thumbnail = file;
             
-            data.timestamp = new Date().getTime(); // Atualiza timestamp
+            data.timestamp = new Date().getTime();
 
             const putRequest = store.put(data);
             putRequest.onsuccess = () => resolve();
@@ -77,7 +87,7 @@ async function getMediaFromDB(id) {
 
         request.onsuccess = (event) => {
             const result = event.target.result;
-            resolve(result || null); // Retorna objeto {id, video, thumbnail} ou null
+            resolve(result || null);
         };
         request.onerror = (e) => reject(e);
     });
@@ -113,7 +123,6 @@ function getTodayDate() {
 function showToast(message) {
     let toast = document.getElementById('toast-notification');
     if (!toast) {
-        // Fallback caso html não tenha o elemento
         toast = document.createElement('div');
         toast.id = 'toast-notification';
         document.body.appendChild(toast);
@@ -123,9 +132,11 @@ function showToast(message) {
     setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
 }
 
-// --- PERSISTÊNCIA DE DADOS (LocalStorage) ---
+// --- PERSISTÊNCIA DE DADOS (Firebase Mock) ---
 
-function saveContentToLocalStorage() {
+async function saveContentToCloud() {
+    if (!currentUser) return;
+
     const cards = contentList.querySelectorAll('.content-card');
     const dataArray = [];
 
@@ -135,7 +146,6 @@ function saveContentToLocalStorage() {
         const captionInput = card.querySelector('.output-caption');
         const hashtagInput = card.querySelector('.input-hashtags');
         
-        // Labels de referência (nomes dos arquivos)
         const videoLabel = card.querySelector('.video-filename-label');
         const thumbLabel = card.querySelector('.thumb-filename-label');
 
@@ -151,31 +161,29 @@ function saveContentToLocalStorage() {
         dataArray.push(contentBlock);
     });
 
-    localStorage.setItem(STORAGE_KEY_DATA, JSON.stringify(dataArray));
-    showToast("💾 Alterações salvas");
+    // Usa o ID do usuário para segregar dados
+    await firestore.saveUserContent(currentUser.uid, dataArray);
+    showToast("☁️ Salvo na nuvem");
 }
 
-async function loadContentFromLocalStorage() {
+async function loadContentFromCloud() {
+    if (!currentUser) return;
+    
+    // Limpa lista atual
+    contentList.innerHTML = '';
+
     try {
-        const savedData = localStorage.getItem(STORAGE_KEY_DATA);
+        const dataArray = await firestore.loadUserContent(currentUser.uid);
         
-        if (savedData) {
-            const dataArray = JSON.parse(savedData);
-            
-            if (Array.isArray(dataArray) && dataArray.length > 0) {
-                // Inverte loop para manter a ordem visual correta (append vs prepend)
-                // Como createNewCard usa prepend, iteramos do ultimo para o primeiro para manter a ordem salva
-                for (let i = dataArray.length - 1; i >= 0; i--) {
-                    await createNewCard(dataArray[i]);
-                }
-            } else {
-                createNewCard(); 
+        if (Array.isArray(dataArray) && dataArray.length > 0) {
+            for (let i = dataArray.length - 1; i >= 0; i--) {
+                await createNewCard(dataArray[i]);
             }
         } else {
-            createNewCard();
+            createNewCard(); 
         }
     } catch (error) {
-        console.error("Erro ao carregar do LocalStorage:", error);
+        console.error("Erro ao carregar do Firebase:", error);
         createNewCard();
     }
 }
@@ -196,7 +204,7 @@ async function createNewCard(initialData = null) {
     const hashtagError = card.querySelector('.hashtag-error');
     const btnDelete = card.querySelector('.btn-delete');
     
-    // Elementos de Mídia
+    // Mídia
     const videoInput = card.querySelector('.input-video-file');
     const videoPreview = card.querySelector('.video-preview');
     const videoPlaceholder = card.querySelector('.video-uploader .preview-placeholder');
@@ -205,7 +213,6 @@ async function createNewCard(initialData = null) {
     const thumbPreview = card.querySelector('.thumb-preview');
     const thumbPlaceholder = card.querySelector('.thumb-uploader .preview-placeholder');
 
-    // Labels para nome dos arquivos
     let videoNameLabel = document.createElement('small');
     videoNameLabel.className = 'filename-label video-filename-label';
     card.querySelector('.video-uploader').after(videoNameLabel);
@@ -214,7 +221,6 @@ async function createNewCard(initialData = null) {
     thumbNameLabel.className = 'filename-label thumb-filename-label';
     card.querySelector('.thumb-uploader').after(thumbNameLabel);
 
-    // Preencher dados iniciais
     if (initialData) {
         dateInput.value = initialData.date || getTodayDate();
         captionInput.value = initialData.legend || "";
@@ -223,18 +229,15 @@ async function createNewCard(initialData = null) {
         if(initialData.videoReference) videoNameLabel.innerText = initialData.videoReference;
         if(initialData.thumbnailReference) thumbNameLabel.innerText = initialData.thumbnailReference;
 
-        // Recuperar arquivos reais do IndexedDB
         try {
             const mediaRecord = await getMediaFromDB(cardId);
             if (mediaRecord) {
-                // Configurar preview de Vídeo
-                if (mediaRecord.video || mediaRecord.file) { // .file é suporte legado
+                if (mediaRecord.video || mediaRecord.file) {
                     const vidBlob = mediaRecord.video || mediaRecord.file;
                     videoPreview.src = URL.createObjectURL(vidBlob);
                     videoPreview.style.display = 'block';
                     videoPlaceholder.style.display = 'none';
                 }
-                // Configurar preview de Thumbnail
                 if (mediaRecord.thumbnail) {
                     thumbPreview.src = URL.createObjectURL(mediaRecord.thumbnail);
                     thumbPreview.style.display = 'block';
@@ -248,14 +251,11 @@ async function createNewCard(initialData = null) {
         dateInput.value = getTodayDate();
     }
 
-    // --- EVENTOS ---
-
-    // 1. Salvar Texto
+    // Eventos
     [dateInput, captionInput].forEach(input => {
-        input.addEventListener('input', saveContentToLocalStorage);
+        input.addEventListener('input', () => saveContentToCloud());
     });
 
-    // 2. Hashtags
     hashtagInput.addEventListener('input', (e) => {
         const text = e.target.value;
         const tags = text.trim().split(/\s+/).filter(t => t.length > 0);
@@ -267,10 +267,9 @@ async function createNewCard(initialData = null) {
             hashtagInput.classList.remove('error');
             hashtagError.style.display = 'none';
         }
-        saveContentToLocalStorage();
+        saveContentToCloud();
     });
 
-    // 3. Upload de Vídeo
     videoInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -281,9 +280,9 @@ async function createNewCard(initialData = null) {
             videoNameLabel.innerText = "Video: " + file.name;
 
             try {
-                showToast("⏳ Salvando vídeo...");
+                showToast("⏳ Salvando vídeo localmente...");
                 await saveMediaToDB(cardId, 'video', file);
-                saveContentToLocalStorage(); 
+                saveContentToCloud(); 
                 showToast("✅ Vídeo salvo!");
             } catch (err) {
                 console.error(err);
@@ -292,7 +291,6 @@ async function createNewCard(initialData = null) {
         }
     });
 
-    // 4. Upload de Thumbnail
     thumbInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
@@ -303,9 +301,9 @@ async function createNewCard(initialData = null) {
             thumbNameLabel.innerText = "Capa: " + file.name;
 
             try {
-                showToast("⏳ Salvando capa...");
+                showToast("⏳ Salvando capa localmente...");
                 await saveMediaToDB(cardId, 'thumbnail', file);
-                saveContentToLocalStorage();
+                saveContentToCloud();
                 showToast("✅ Capa salva!");
             } catch (err) {
                 console.error(err);
@@ -314,12 +312,11 @@ async function createNewCard(initialData = null) {
         }
     });
 
-    // 5. Exclusão
     btnDelete.addEventListener('click', async () => {
         if(confirm('Tem certeza que deseja remover este conteúdo?')) {
             card.remove();
             await deleteMediaFromDB(cardId);
-            saveContentToLocalStorage();
+            saveContentToCloud();
         }
     });
 
@@ -327,14 +324,55 @@ async function createNewCard(initialData = null) {
     
     if (!initialData) {
         card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        saveContentToLocalStorage();
+        saveContentToCloud();
     }
 }
 
-// Inicialização
-document.addEventListener('DOMContentLoaded', async () => {
-    await initDB();
-    await loadContentFromLocalStorage();
+// --- GERENCIAMENTO DE ESTADO E INICIALIZAÇÃO ---
+
+// Atualiza UI baseada no estado de login
+function updateUIForUser(user) {
+    if (user) {
+        // Usuário logado
+        currentUser = user;
+        loginScreen.style.display = 'none';
+        appContent.style.display = 'block';
+        
+        userAvatar.src = user.photoURL;
+        userName.textContent = user.displayName;
+        
+        // Inicializa DB e Carrega dados
+        initDB().then(() => loadContentFromCloud());
+    } else {
+        // Usuário deslogado
+        currentUser = null;
+        loginScreen.style.display = 'flex';
+        appContent.style.display = 'none';
+        contentList.innerHTML = ''; // Limpa dados da tela
+    }
+}
+
+// Listeners Globais
+document.addEventListener('DOMContentLoaded', () => {
+    // Verifica estado de autenticação ao carregar
+    auth.onAuthStateChanged((user) => {
+        updateUIForUser(user);
+    });
+});
+
+btnLoginGoogle.addEventListener('click', async () => {
+    try {
+        await auth.signInWithGoogle();
+        // onAuthStateChanged cuidará da atualização da UI
+    } catch (error) {
+        console.error("Erro no login:", error);
+        showToast("❌ Erro ao fazer login");
+    }
+});
+
+btnLogout.addEventListener('click', async () => {
+    await auth.signOut();
+    // onAuthStateChanged cuidará da atualização da UI
 });
 
 btnNew.addEventListener('click', () => createNewCard());
