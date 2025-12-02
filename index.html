@@ -48,21 +48,30 @@
             </div>
 
             <div class="col-video">
-                <label>Vídeo Principal</label>
-                <div class="media-uploader video-uploader">
-                    <input type="file" accept="video/*" class="input-video-file">
-                    <div class="preview-placeholder">🎥 Escolher Vídeo</div>
-                    <video class="media-preview video-preview" controls style="display:none;"></video>
-                </div>
-                <!-- Label para nome do arquivo é inserido via JS aqui -->
+                <label>Arquivos de Mídia</label>
+                <div class="media-row">
+                    <!-- Bloco Vídeo -->
+                    <div class="media-group">
+                        <span class="sub-label">Vídeo</span>
+                        <div class="media-uploader video-uploader">
+                            <input type="file" accept="video/*" class="input-video-file">
+                            <div class="preview-placeholder">🎥 Vídeo</div>
+                            <video class="media-preview video-preview" controls style="display:none;"></video>
+                        </div>
+                        <!-- Label para nome do arquivo é inserido via JS aqui -->
+                    </div>
 
-                <label style="margin-top: 1rem; display:block;">Thumbnail (Capa)</label>
-                <div class="media-uploader thumb-uploader">
-                    <input type="file" accept="image/*" class="input-thumb-file">
-                    <div class="preview-placeholder">🖼️ Escolher Capa</div>
-                    <img class="media-preview thumb-preview" style="display:none;">
+                    <!-- Bloco Thumbnail -->
+                    <div class="media-group">
+                        <span class="sub-label">Capa (Thumb)</span>
+                        <div class="media-uploader thumb-uploader">
+                            <input type="file" accept="image/*" class="input-thumb-file">
+                            <div class="preview-placeholder">🖼️ Capa</div>
+                            <img class="media-preview thumb-preview" style="display:none;">
+                        </div>
+                        <!-- Label para nome da imagem é inserido via JS aqui -->
+                    </div>
                 </div>
-                <!-- Label para nome da imagem é inserido via JS aqui -->
             </div>
 
             <div class="col-caption">
