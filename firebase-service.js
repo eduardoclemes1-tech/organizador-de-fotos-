@@ -23,9 +23,9 @@ import {
  */
 const firebaseConfig = {
     apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo", 
-    authDomain: "gerenciador-de-video.firebaseapp.com", 
-    projectId: "gerenciador-de-video",
-    storageBucket: "gerenciador-de-video.appspot.com",
+    authDomain: "gerenciador-de-foto.firebaseapp.com", 
+    projectId: "gerenciador-de-foto",
+    storageBucket: "gerenciador-de-foto.appspot.com",
     messagingSenderId: "533748190214",
     appId: "1:533748190214:web:342697273af7994da98787"
 };
