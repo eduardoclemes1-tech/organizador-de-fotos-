@@ -9,7 +9,7 @@ import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/fireb
  * Substitua os valores abaixo pelas configurações do seu projeto no Firebase Console.
  */
 const firebaseConfig = {
-    apiKey: "SUA_API_KEY_AQUI",
+    apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo",
     authDomain: "SEU_PROJETO.firebaseapp.com",
     projectId: "SEU_PROJECT_ID",
     storageBucket: "SEU_PROJETO.appspot.com",
