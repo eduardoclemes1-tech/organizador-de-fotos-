@@ -1,4 +1,3 @@
-
 /**
  * Serviço de IA (Frontend)
  * Tenta comunicar com o Backend Seguro. 
@@ -22,9 +21,9 @@ export async function generateContent(videoContext) {
     try {
         console.log("📡 Tentando conectar ao backend em:", API_URL);
         
-        // Tenta conectar ao servidor Node.js (com timeout curto para não travar)
+        // Tenta conectar ao servidor Node.js com timeout curto (2s) para fallback rápido
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 segundos timeout
+        const timeoutId = setTimeout(() => controller.abort(), 2000);
 
         const response = await fetch(API_URL, {
             method: 'POST',
@@ -38,8 +37,7 @@ export async function generateContent(videoContext) {
         clearTimeout(timeoutId);
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || `Erro do servidor: ${response.status}`);
+            throw new Error(`Status: ${response.status}`);
         }
 
         const data = await response.json();
@@ -49,24 +47,34 @@ export async function generateContent(videoContext) {
         };
 
     } catch (error) {
-        console.warn("⚠️ Backend indisponível ou erro de conexão. Usando modo DEMO/OFFLINE.", error);
+        console.warn("⚠️ Backend offline ou não configurado. Ativando MODO SIMULAÇÃO.", error);
         
-        // --- MODO DEMO / FALLBACK ---
-        // Simula uma resposta para o usuário não ficar travado se não rodar o server.js
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Simula delay da IA
+        // Notifica o usuário visualmente (via console ou UI se possível, aqui retornamos dados)
+        // Isso garante que o botão "Gerar" sempre funcione, mesmo sem servidor Node.js rodando.
+        
+        await new Promise(resolve => setTimeout(resolve, 1000)); // Delay artificial "pensando"
 
-        const isTech = videoContext.toLowerCase().includes('code') || videoContext.toLowerCase().includes('ia') || videoContext.toLowerCase().includes('dev');
+        const ctx = videoContext.toLowerCase();
+        const isTech = ctx.includes('code') || ctx.includes('ia') || ctx.includes('dev') || ctx.includes('react');
+        const isFood = ctx.includes('receita') || ctx.includes('comida') || ctx.includes('bolo');
         
+        let demoCaption = "";
+        let demoHashtags = [];
+
         if (isTech) {
-            return {
-                caption: `🚀 Transforme sua forma de codar com essas dicas essenciais! 💻\n\nNo vídeo de hoje, mostro como aplicar conceitos avançados de ${videoContext} no seu dia a dia. A produtividade vai lá pro alto! 📈\n\n👇 Me conta aqui nos comentários: qual sua maior dificuldade nessa área?\n\n#DevLife`,
-                hashtags: ["#Desenvolvimento", "#Programação", "#TechTips", "#CleanCode", "#Inovação"]
-            };
+            demoCaption = `🚀 Dica rápida de Dev!\n\nHoje vou mostrar como resolver "${videoContext}" de forma simples e eficiente. Essa técnica salvou horas do meu projeto.\n\n👇 Já conhecia esse método? Comenta aí!\n\n(Texto gerado em Modo Simulação - Configure o Backend para IA real)`;
+            demoHashtags = ["#DevLife", "#Coding", "#TechTips", "#Programador"];
+        } else if (isFood) {
+            demoCaption = `😋 Água na boca!\n\nQuem aí resiste a "${videoContext}"? O segredo para ficar perfeito eu conto no vídeo. Salva pra não perder!\n\n(Texto gerado em Modo Simulação)`;
+            demoHashtags = ["#Receitas", "#Gastronomia", "#DicaDeCozinha", "#Delicia"];
         } else {
-            return {
-                caption: `✨ Aquele momento especial que a gente precisava registrar! \n\n"${videoContext}" não é só sobre o resultado, é sobre o processo. Espero que esse vídeo inspire o seu dia tanto quanto me inspirou a gravar. 🎥\n\nMarque alguém que precisa ver isso hoje! 👇`,
-                hashtags: ["#Inspiração", "#Lifestyle", "#ConteúdoDigital", "#Vibes", "#Criatividade"]
-            };
+            demoCaption = `✨ Momento especial: "${videoContext}"\n\nÀs vezes a gente só precisa parar e apreciar o processo. Espero que gostem do resultado tanto quanto eu!\n\n(Texto gerado em Modo Simulação)`;
+            demoHashtags = ["#Lifestyle", "#Vlog", "#Inspiração", "#DiaADia"];
         }
+
+        return {
+            caption: demoCaption,
+            hashtags: demoHashtags
+        };
     }
 }

@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -9,7 +8,7 @@
     <!-- Importação de fontes para um visual clean -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     
-    <!-- Import Map para carregar Firebase Modular diretamente no navegador -->
+    <!-- Import Map Simplificado e Robusto para Firebase v10 via esm.sh -->
     <script type="importmap">
 {
   "imports": {
@@ -17,9 +16,9 @@
     "firebase/auth": "https://esm.sh/firebase@10.8.0/auth",
     "firebase/firestore": "https://esm.sh/firebase@10.8.0/firestore",
     "firebase/": "https://aistudiocdn.com/firebase@^12.6.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "express": "https://aistudiocdn.com/express@^5.2.1",
-    "cors": "https://aistudiocdn.com/cors@^2.8.5"
+    "cors": "https://aistudiocdn.com/cors@^2.8.5",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
   }
 }
 </script>
@@ -43,7 +42,7 @@
                 Entrar com Google
             </button>
             <p id="config-error-msg" style="color: #ef4444; font-size: 0.8rem; margin-top: 15px; display: none;">
-                ⚠️ Erro de Configuração: Verifique o console.
+                ⚠️ Verificando configuração...
             </p>
         </div>
     </section>
