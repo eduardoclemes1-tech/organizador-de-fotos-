@@ -1,8 +1,9 @@
 
 // Importa as funções do Firebase Modular (v10)
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut as firebaseSignOut, onAuthStateChanged as firebaseOnAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+import firebase from 'firebase/app';
+import 'firebase/firebase-auth';
+import 'firebase/firebase-firestore';
+
 
 /**
  * --- CONFIGURAÇÃO DO FIREBASE (REAL) ---
@@ -10,7 +11,7 @@ import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/fireb
  */
 const firebaseConfig = {
     apiKey: "1:533748190214:web:342697273af7994da98787",
-    authDomain: "gerenciador-de-video.firebaseapp.com",
+    authDomain: "gerenciador-de-video.firebaseapp.com", 
     projectId: "gerenciador-de-video",
     storageBucket: "gerenciador-de-video.appspot.com",
     messagingSenderId: "533748190214",
