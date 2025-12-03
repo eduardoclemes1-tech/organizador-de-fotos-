@@ -17,30 +17,24 @@ const btnLogout = document.getElementById('btn-logout');
 import { auth, db as firestore } from './firebase-service.js';
 import { generateContent } from './ai-service.js';
 
-// Chaves e Configurações Globais
+// Configurações do IndexedDB (para arquivos de mídia pesados que não vão pro Firestore)
 const DB_NAME = 'VideoManagerDB';
 const DB_VERSION = 2;
 const DB_STORE_NAME = 'media_content';
 
-let currentUser = null; // Armazena o usuário logado atualmente
+let currentUser = null; 
 
-// --- CAMADA DE BANCO DE DADOS (IndexedDB para Arquivos Grandes) ---
+// --- CAMADA DE BANCO DE DADOS LOCAL (Mídia) ---
 let db;
 
 function initDB() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.open(DB_NAME, DB_VERSION);
-
-        request.onerror = (event) => {
-            console.error("Erro ao abrir banco de dados:", event);
-            reject(event);
-        };
-
+        request.onerror = (event) => reject(event);
         request.onsuccess = (event) => {
             db = event.target.result;
             resolve(db);
         };
-
         request.onupgradeneeded = (event) => {
             const db = event.target.result;
             if (!db.objectStoreNames.contains(DB_STORE_NAME)) {
@@ -50,11 +44,10 @@ function initDB() {
     });
 }
 
-// Salva arquivos de mídia (Video ou Thumbnail)
+// Salva arquivos binários (Blob) localmente
 async function saveMediaToDB(id, type, file) {
     if (!db) await initDB();
-    
-    return new Promise(async (resolve, reject) => {
+    return new Promise((resolve, reject) => {
         const transaction = db.transaction([DB_STORE_NAME], 'readwrite');
         const store = transaction.objectStore(DB_STORE_NAME);
         
@@ -62,47 +55,31 @@ async function saveMediaToDB(id, type, file) {
 
         getRequest.onsuccess = (event) => {
             let data = event.target.result || { id: id, timestamp: new Date().getTime() };
-            
             if (type === 'video') data.video = file;
             if (type === 'thumbnail') data.thumbnail = file;
-            
-            data.timestamp = new Date().getTime();
-
-            const putRequest = store.put(data);
-            putRequest.onsuccess = () => resolve();
-            putRequest.onerror = (e) => reject(e);
+            store.put(data).onsuccess = () => resolve();
         };
-
         getRequest.onerror = (e) => reject(e);
     });
 }
 
 async function getMediaFromDB(id) {
     if (!db) await initDB();
-
     return new Promise((resolve, reject) => {
         const transaction = db.transaction([DB_STORE_NAME], 'readonly');
         const store = transaction.objectStore(DB_STORE_NAME);
         const request = store.get(id);
-
-        request.onsuccess = (event) => {
-            const result = event.target.result;
-            resolve(result || null);
-        };
+        request.onsuccess = (e) => resolve(e.target.result || null);
         request.onerror = (e) => reject(e);
     });
 }
 
 async function deleteMediaFromDB(id) {
     if (!db) await initDB();
-
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
         const transaction = db.transaction([DB_STORE_NAME], 'readwrite');
         const store = transaction.objectStore(DB_STORE_NAME);
-        const request = store.delete(id);
-
-        request.onsuccess = () => resolve();
-        request.onerror = (e) => reject(e);
+        store.delete(id).onsuccess = () => resolve();
     });
 }
 
@@ -114,10 +91,7 @@ function generateUUID() {
 
 function getTodayDate() {
     const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    return today.toISOString().split('T')[0];
 }
 
 function showToast(message) {
@@ -132,7 +106,7 @@ function showToast(message) {
     setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
 }
 
-// --- PERSISTÊNCIA DE DADOS (Firebase Mock) ---
+// --- PERSISTÊNCIA DE DADOS (Firestore) ---
 
 async function saveContentToCloud() {
     if (!currentUser) return;
@@ -146,7 +120,6 @@ async function saveContentToCloud() {
         const contextInput = card.querySelector('.input-context');
         const captionInput = card.querySelector('.output-caption');
         const hashtagInput = card.querySelector('.input-hashtags');
-        
         const videoLabel = card.querySelector('.video-filename-label');
         const thumbLabel = card.querySelector('.thumb-filename-label');
 
@@ -163,43 +136,56 @@ async function saveContentToCloud() {
         dataArray.push(contentBlock);
     });
 
-    // Usa o ID do usuário para segregar dados
-    await firestore.saveUserContent(currentUser.uid, dataArray);
-    showToast("☁️ Salvo na nuvem");
+    try {
+        await firestore.saveUserContent(currentUser.uid, dataArray);
+        console.log("Sincronizado com Firestore");
+    } catch (error) {
+        console.error("Erro ao sincronizar:", error);
+        showToast("⚠️ Erro ao salvar na nuvem");
+    }
 }
 
 async function loadContentFromCloud() {
     if (!currentUser) return;
     
-    // Limpa lista atual
     contentList.innerHTML = '';
+    
+    // Adiciona loading
+    const loadingMsg = document.createElement('div');
+    loadingMsg.textContent = "Carregando seus vídeos...";
+    loadingMsg.style.textAlign = "center";
+    loadingMsg.style.padding = "20px";
+    contentList.appendChild(loadingMsg);
 
     try {
         const dataArray = await firestore.loadUserContent(currentUser.uid);
-        
+        contentList.innerHTML = ''; // Limpa loading
+
         if (Array.isArray(dataArray) && dataArray.length > 0) {
-            for (let i = dataArray.length - 1; i >= 0; i--) {
-                await createNewCard(dataArray[i]);
+            // Renderiza cards (invertido para mais recente no topo se quiser, ou mantém ordem)
+            for (const item of dataArray) {
+                await createNewCard(item);
             }
         } else {
+            // Se não tiver nada, cria um vazio
             createNewCard(); 
         }
     } catch (error) {
-        console.error("Erro ao carregar do Firebase:", error);
+        console.error("Erro no load:", error);
+        contentList.innerHTML = '';
         createNewCard();
     }
 }
 
-// --- LÓGICA DE INTERFACE ---
+// --- LÓGICA DE INTERFACE (Cards) ---
 
 async function createNewCard(initialData = null) {
     const clone = template.content.cloneNode(true);
     const card = clone.querySelector('.content-card');
-    
     const cardId = initialData ? initialData.id : generateUUID();
     card.setAttribute('data-id', cardId);
 
-    // Seleção de Elementos
+    // Elementos
     const dateInput = card.querySelector('.input-date');
     const contextInput = card.querySelector('.input-context');
     const btnAiGenerate = card.querySelector('.btn-ai-generate');
@@ -212,7 +198,6 @@ async function createNewCard(initialData = null) {
     const videoInput = card.querySelector('.input-video-file');
     const videoPreview = card.querySelector('.video-preview');
     const videoPlaceholder = card.querySelector('.video-uploader .preview-placeholder');
-
     const thumbInput = card.querySelector('.input-thumb-file');
     const thumbPreview = card.querySelector('.thumb-preview');
     const thumbPlaceholder = card.querySelector('.thumb-uploader .preview-placeholder');
@@ -225,6 +210,7 @@ async function createNewCard(initialData = null) {
     thumbNameLabel.className = 'filename-label thumb-filename-label';
     card.querySelector('.thumb-uploader').after(thumbNameLabel);
 
+    // Preenchimento de Dados Iniciais
     if (initialData) {
         dateInput.value = initialData.date || getTodayDate();
         contextInput.value = initialData.context || "";
@@ -234,12 +220,12 @@ async function createNewCard(initialData = null) {
         if(initialData.videoReference) videoNameLabel.innerText = initialData.videoReference;
         if(initialData.thumbnailReference) thumbNameLabel.innerText = initialData.thumbnailReference;
 
+        // Recupera blobs do IndexedDB
         try {
             const mediaRecord = await getMediaFromDB(cardId);
             if (mediaRecord) {
-                if (mediaRecord.video || mediaRecord.file) {
-                    const vidBlob = mediaRecord.video || mediaRecord.file;
-                    videoPreview.src = URL.createObjectURL(vidBlob);
+                if (mediaRecord.video) {
+                    videoPreview.src = URL.createObjectURL(mediaRecord.video);
                     videoPreview.style.display = 'block';
                     videoPlaceholder.style.display = 'none';
                 }
@@ -249,127 +235,89 @@ async function createNewCard(initialData = null) {
                     thumbPlaceholder.style.display = 'none';
                 }
             }
-        } catch (error) {
-            console.error("Erro ao recuperar mídia do DB:", error);
-        }
+        } catch (e) { console.error(e); }
     } else {
         dateInput.value = getTodayDate();
     }
 
-    // --- EVENTOS ---
+    // --- EVENTOS DE INTERFACE ---
 
-    // 1. Inputs de Texto
-    [dateInput, contextInput, captionInput].forEach(input => {
-        input.addEventListener('input', () => saveContentToCloud());
+    // Salvamento automático ao digitar
+    let debounceTimer;
+    const autoSave = () => {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => saveContentToCloud(), 1000);
+    };
+
+    [dateInput, contextInput, captionInput, hashtagInput].forEach(input => {
+        input.addEventListener('input', autoSave);
     });
 
-    // 2. Botão IA
+    // IA Generativa
     btnAiGenerate.addEventListener('click', async () => {
         const context = contextInput.value.trim();
         if (!context) {
-            // Feedback visual melhorado em vez de alert
-            showToast("⚠️ O que devo escrever? Digite um tema no campo acima.");
+            showToast("⚠️ Digite um tema primeiro!");
             contextInput.focus();
             contextInput.classList.add('input-error');
             setTimeout(() => contextInput.classList.remove('input-error'), 500);
             return;
         }
 
-        // Estado de Carregamento
         const originalText = btnAiGenerate.innerHTML;
         btnAiGenerate.disabled = true;
         btnAiGenerate.innerHTML = `⏳ Criando...`;
-        captionInput.placeholder = "A IA está pensando...";
 
         try {
             const result = await generateContent(context);
-            
-            // Preenche os campos
             captionInput.value = result.caption;
-            // Verifica se hashtags é array ou string
             const tags = Array.isArray(result.hashtags) ? result.hashtags.join(' ') : result.hashtags;
             hashtagInput.value = tags;
-            
-            showToast("✨ Conteúdo gerado com sucesso!");
-            saveContentToCloud(); // Salva automático
-
+            showToast("✨ Conteúdo gerado!");
+            saveContentToCloud();
         } catch (error) {
-            console.error("Erro IA:", error);
-            showToast("❌ Erro ao gerar conteúdo.");
-            captionInput.value = "Erro ao conectar com a IA. Verifique sua chave API.";
+            console.error(error);
+            showToast("❌ Erro na IA");
+            captionInput.value = "Não foi possível conectar ao serviço de IA.";
         } finally {
             btnAiGenerate.disabled = false;
             btnAiGenerate.innerHTML = originalText;
         }
     });
 
-    // 3. Hashtags
-    hashtagInput.addEventListener('input', (e) => {
-        const text = e.target.value;
-        const tags = text.trim().split(/\s+/).filter(t => t.length > 0);
-        
-        if (tags.length > 5) {
-            hashtagInput.classList.add('error');
-            hashtagError.style.display = 'block';
-        } else {
-            hashtagInput.classList.remove('error');
-            hashtagError.style.display = 'none';
-        }
-        saveContentToCloud();
-    });
-
-    // 4. Mídia (Video)
+    // Upload Vídeo
     videoInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const url = URL.createObjectURL(file);
-            videoPreview.src = url;
+            videoPreview.src = URL.createObjectURL(file);
             videoPreview.style.display = 'block';
             videoPlaceholder.style.display = 'none';
             videoNameLabel.innerText = "Video: " + file.name;
             
-            // Sugere o nome do arquivo como contexto se estiver vazio
-            if (!contextInput.value) {
-                contextInput.value = file.name.split('.')[0].replace(/-/g, ' ');
-            }
+            if(!contextInput.value) contextInput.value = file.name.split('.')[0];
 
-            try {
-                showToast("⏳ Salvando vídeo localmente...");
-                await saveMediaToDB(cardId, 'video', file);
-                saveContentToCloud(); 
-                showToast("✅ Vídeo salvo!");
-            } catch (err) {
-                console.error(err);
-                showToast("❌ Erro ao salvar vídeo.");
-            }
+            await saveMediaToDB(cardId, 'video', file);
+            saveContentToCloud();
         }
     });
 
-    // 5. Mídia (Thumb)
+    // Upload Thumbnail
     thumbInput.addEventListener('change', async (e) => {
         const file = e.target.files[0];
         if (file) {
-            const url = URL.createObjectURL(file);
-            thumbPreview.src = url;
+            thumbPreview.src = URL.createObjectURL(file);
             thumbPreview.style.display = 'block';
             thumbPlaceholder.style.display = 'none';
             thumbNameLabel.innerText = "Capa: " + file.name;
 
-            try {
-                showToast("⏳ Salvando capa localmente...");
-                await saveMediaToDB(cardId, 'thumbnail', file);
-                saveContentToCloud();
-                showToast("✅ Capa salva!");
-            } catch (err) {
-                console.error(err);
-                showToast("❌ Erro ao salvar capa.");
-            }
+            await saveMediaToDB(cardId, 'thumbnail', file);
+            saveContentToCloud();
         }
     });
 
-    // 6. Deletar
+    // Deletar
     btnDelete.addEventListener('click', async () => {
-        if(confirm('Tem certeza que deseja remover este conteúdo?')) {
+        if(confirm('Remover este item?')) {
             card.remove();
             await deleteMediaFromDB(cardId);
             saveContentToCloud();
@@ -377,59 +325,37 @@ async function createNewCard(initialData = null) {
     });
 
     contentList.prepend(card);
-    
-    if (!initialData) {
-        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        contextInput.focus(); // Foca no contexto para incentivar uso
-        saveContentToCloud();
-    }
 }
 
-// --- GERENCIAMENTO DE ESTADO E INICIALIZAÇÃO ---
+// --- FLUXO DE AUTENTICAÇÃO ---
 
-// Atualiza UI baseada no estado de login
-function updateUIForUser(user) {
+auth.onAuthStateChanged((user) => {
     if (user) {
-        // Usuário logado
         currentUser = user;
         loginScreen.style.display = 'none';
         appContent.style.display = 'block';
-        
-        userAvatar.src = user.photoURL;
+        userAvatar.src = user.photoURL || 'https://via.placeholder.com/36';
         userName.textContent = user.displayName;
         
-        // Inicializa DB e Carrega dados
         initDB().then(() => loadContentFromCloud());
     } else {
-        // Usuário deslogado
         currentUser = null;
         loginScreen.style.display = 'flex';
         appContent.style.display = 'none';
-        contentList.innerHTML = ''; // Limpa dados da tela
+        contentList.innerHTML = '';
     }
-}
-
-// Listeners Globais
-document.addEventListener('DOMContentLoaded', () => {
-    // Verifica estado de autenticação ao carregar
-    auth.onAuthStateChanged((user) => {
-        updateUIForUser(user);
-    });
 });
 
 btnLoginGoogle.addEventListener('click', async () => {
     try {
         await auth.signInWithGoogle();
-        // onAuthStateChanged cuidará da atualização da UI
     } catch (error) {
-        console.error("Erro no login:", error);
-        showToast("❌ Erro ao fazer login");
+        showToast("❌ Erro ao logar. Verifique console.");
     }
 });
 
 btnLogout.addEventListener('click', async () => {
     await auth.signOut();
-    // onAuthStateChanged cuidará da atualização da UI
 });
 
 btnNew.addEventListener('click', () => createNewCard());
