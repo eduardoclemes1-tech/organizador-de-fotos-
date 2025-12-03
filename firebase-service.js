@@ -25,7 +25,7 @@ import {
  */
 const firebaseConfig = {
     // ⬇️ COLOQUE SUA API KEY CORRETA AQUI (Começa com AIza...)
-    apiKey: "AIzaSy...SUA_CHAVE_AQUI", 
+    apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo", 
     
     // ⬇️ MANTENHA O RESTO DAS CONFIGURAÇÕES
     authDomain: "gerenciador-de-video.firebaseapp.com", 
