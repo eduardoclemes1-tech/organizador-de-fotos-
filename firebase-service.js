@@ -10,11 +10,11 @@ import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/fireb
  */
 const firebaseConfig = {
     apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo",
-    authDomain: "gerenciador-de-fotos.firebaseapp.com",
-    projectId: "SEU_PROJECT_ID",
-    storageBucket: "gerenciador-de-fotos.appspot.com",
-    messagingSenderId: "SEU_MESSAGING_ID",
-    appId: "SEU_APP_ID"
+    authDomain: "gerenciador-de-video.firebaseapp.com",
+    projectId: "gerenciador-de-video",
+    storageBucket: "gerenciador-de-video.appspot.com",
+    messagingSenderId: "533748190214",
+    appId: "gerenciador-de-video"
 };
 
 // Verifica configuração
