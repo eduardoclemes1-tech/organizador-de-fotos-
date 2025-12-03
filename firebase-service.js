@@ -9,7 +9,7 @@ import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/fireb
  * Substitua os valores abaixo pelas configurações do seu projeto no Firebase Console.
  */
 const firebaseConfig = {
-    apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo",
+    apiKey: "1:533748190214:web:342697273af7994da98787",
     authDomain: "gerenciador-de-video.firebaseapp.com",
     projectId: "gerenciador-de-video",
     storageBucket: "gerenciador-de-video.appspot.com",
@@ -18,7 +18,7 @@ const firebaseConfig = {
 };
 
 // Verifica configuração
-const isConfigured = !firebaseConfig.apiKey.includes("AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo");
+const isConfigured = !firebaseConfig.apiKey.includes("1:533748190214:web:342697273af7994da98787");
 
 let app;
 let authInstance;
