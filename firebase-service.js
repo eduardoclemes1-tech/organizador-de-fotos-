@@ -10,15 +10,15 @@ import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/fireb
  */
 const firebaseConfig = {
     apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo",
-    authDomain: "SEU_PROJETO.firebaseapp.com",
+    authDomain: "gerenciador-de-fotos.firebaseapp.com",
     projectId: "SEU_PROJECT_ID",
-    storageBucket: "SEU_PROJETO.appspot.com",
+    storageBucket: "gerenciador-de-fotos.appspot.com",
     messagingSenderId: "SEU_MESSAGING_ID",
     appId: "SEU_APP_ID"
 };
 
 // Verifica configuração
-const isConfigured = !firebaseConfig.apiKey.includes("SUA_API_KEY");
+const isConfigured = !firebaseConfig.apiKey.includes("AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo");
 
 let app;
 let authInstance;
