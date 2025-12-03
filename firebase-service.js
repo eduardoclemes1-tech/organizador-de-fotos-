@@ -20,6 +20,7 @@ import {
 /**
  * --- CONFIGURAÇÃO DO FIREBASE ---
  * Substitua os valores abaixo pelos do seu projeto Firebase.
+ * ATENÇÃO: Verifique se o projectId e authDomain correspondem exatamente ao seu console.
  */
 const firebaseConfig = {
     apiKey: "AIzaSyB4msfKj3E6QEZL8p88zvmvDB46E5kcGVo", 
@@ -41,7 +42,14 @@ try {
     app = initializeApp(firebaseConfig);
     authInstance = getAuth(app);
     dbInstance = getFirestore(app);
+    
+    // Configura provedor Google com parâmetros para forçar seleção de conta se necessário
     provider = new GoogleAuthProvider();
+    provider.setCustomParameters({
+        prompt: 'select_account'
+    });
+    authInstance.languageCode = 'pt'; // Localização para Português
+
     console.log("🔥 Firebase: Serviços inicializados.");
 } catch (error) {
     console.error("❌ ERRO CRÍTICO FIREBASE:", error);
@@ -52,12 +60,12 @@ try {
 export const auth = {
     async signInWithGoogle() {
         if (!authInstance) {
-            alert("Firebase não inicializado. Verifique sua conexão ou configuração.");
+            alert("Firebase não inicializado. Verifique a chave e a configuração no arquivo firebase-service.js.");
             return;
         }
 
         try {
-            // 1. Força a persistência LOCAL (Login mantém mesmo fechando o navegador)
+            // 1. Força a persistência LOCAL
             await setPersistence(authInstance, browserLocalPersistence);
 
             // 2. Tenta fazer o login com Popup
@@ -66,34 +74,35 @@ export const auth = {
 
         } catch (error) {
             console.error("Erro detalhado no login Google:", error);
+            console.log("Código de erro:", error.code);
+            console.log("Mensagem:", error.message);
             
             let title = "❌ Erro de Login";
             let msg = error.message;
 
-            // --- TRATAMENTO DE ERROS COMUNS DE CONFIGURAÇÃO ---
+            // --- DIAGNÓSTICO DE ERROS ---
             
-            // Caso 1: O domínio (localhost ou github.io) não está na lista permitida
+            // Caso 1: Domínio não autorizado (O MAIS COMUM)
             if (error.code === 'auth/unauthorized-domain' || error.message.includes('unauthorized domain')) {
-                title = "⛔ DOMÍNIO BLOQUEADO PELO FIREBASE";
-                msg = `Para segurança, o Firebase bloqueou este login.\n\nSOLUÇÃO:\n1. Vá no Firebase Console -> Authentication -> Settings -> Authorized Domains.\n2. Adicione este domínio: ${window.location.hostname}\n3. Tente novamente.`;
+                title = "⛔ DOMÍNIO NÃO AUTORIZADO";
+                msg = `O Firebase bloqueou o login vindo deste site (${window.location.hostname}).\n\nCOMO RESOLVER:\n1. Vá no Firebase Console (console.firebase.google.com)\n2. Entre em Authentication > Settings > Authorized Domains\n3. Adicione este domínio: ${window.location.hostname}`;
             } 
-            // Caso 2: O provedor "Google" não foi ativado
+            // Caso 2: Provedor Google desativado
             else if (error.code === 'auth/operation-not-allowed') {
                 title = "⛔ LOGIN GOOGLE DESATIVADO";
-                msg = `Você não ativou o login com Google no painel.\n\nSOLUÇÃO:\n1. Vá no Firebase Console -> Authentication -> Sign-in method.\n2. Habilite o provedor "Google".`;
+                msg = `O provedor Google não está ativo no seu projeto Firebase.\n\nCOMO RESOLVER:\n1. Vá no Firebase Console > Authentication > Sign-in method\n2. Habilite o "Google".`;
             }
-            // Caso 3: Popup bloqueado pelo navegador
-            else if (error.code === 'auth/popup-blocked') {
-                title = "⚠️ POPUP BLOQUEADO";
-                msg = "O navegador bloqueou a janela de login. Por favor, permita popups para este site.";
+            // Caso 3: Erro de Configuração (API Key ou Project ID errados)
+            else if (error.code === 'auth/invalid-api-key' || error.code === 'auth/internal-error') {
+                title = "🔧 ERRO DE CONFIGURAÇÃO";
+                msg = "As chaves no arquivo 'firebase-service.js' parecem incorretas. Verifique se o 'projectId' e 'apiKey' são exatamente os mesmos do seu console.";
             }
-            // Caso 4: Chave de API inválida
-            else if (error.code === 'auth/invalid-api-key') {
-                title = "🔑 CHAVE DE API INVÁLIDA";
-                msg = "A 'apiKey' no arquivo firebase-service.js está incorreta ou foi deletada no console.";
+            // Caso 4: Popup fechado pelo usuário
+            else if (error.code === 'auth/popup-closed-by-user') {
+                return; // Não mostra alerta, foi ação intencional
             }
 
-            // Exibe alerta amigável e detalhado
+            // Exibe alerta amigável
             alert(`${title}\n\n${msg}`);
             throw error;
         }
@@ -134,9 +143,8 @@ export const db = {
             console.log("☁️ Dados salvos no Firestore.");
         } catch (e) {
             console.error("Erro ao salvar no Firestore:", e);
-            // Se falhar permissão, avisa mas não trava
             if (e.code === 'permission-denied') {
-                console.warn("⚠️ Permissão negada no Firestore. Verifique as Regras de Segurança (Rules).");
+                console.warn("⚠️ Permissão negada. Verifique as 'Firestore Rules' no console para permitir leitura/escrita.");
             }
             throw e;
         }
