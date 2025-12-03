@@ -1,44 +1,82 @@
 
-// Importa as funções do Firebase Modular (v10)
-import firebase from 'firebase/app';
-import 'firebase/firebase-auth';
-import 'firebase/firebase-firestore';
-
+// Importações corretas para Firebase Modular (v10+)
+import { initializeApp } from "firebase/app";
+import { 
+    getAuth, 
+    signInWithPopup, 
+    GoogleAuthProvider, 
+    signOut as firebaseSignOut, 
+    onAuthStateChanged as firebaseOnAuthStateChanged 
+} from "firebase/auth";
+import { 
+    getFirestore, 
+    doc, 
+    setDoc, 
+    getDoc 
+} from "firebase/firestore";
 
 /**
- * --- CONFIGURAÇÃO DO FIREBASE (REAL) ---
- * Substitua os valores abaixo pelas configurações do seu projeto no Firebase Console.
+ * --- CONFIGURAÇÃO DO FIREBASE ---
+ * 
+ * ATENÇÃO:
+ * 1. apiKey: Começa com "AIza..." (NÃO é o número 1:533...)
+ * 2. authDomain: seu-projeto.firebaseapp.com
+ * 3. projectId: seu-projeto
  */
 const firebaseConfig = {
-    apiKey: "1:533748190214:web:342697273af7994da98787",
+    // ⬇️ COLOQUE SUA API KEY CORRETA AQUI (Começa com AIza...)
+    apiKey: "AIzaSy...SUA_CHAVE_AQUI", 
+    
+    // ⬇️ MANTENHA O RESTO DAS CONFIGURAÇÕES
     authDomain: "gerenciador-de-video.firebaseapp.com", 
     projectId: "gerenciador-de-video",
     storageBucket: "gerenciador-de-video.appspot.com",
     messagingSenderId: "533748190214",
-    appId: "gerenciador-de-video"
+    appId: "1:533748190214:web:342697273af7994da98787"
 };
 
-// Verifica configuração
-const isConfigured = !firebaseConfig.apiKey.includes("1:533748190214:web:342697273af7994da98787");
-
+// --- Validação de Configuração ---
 let app;
 let authInstance;
 let dbInstance;
 let provider;
+let isConfigured = false;
 
-if (isConfigured) {
+// Verifica se a API Key foi preenchida e se NÃO parece um App ID (que começa com número e dois pontos)
+const apiKey = firebaseConfig.apiKey || "";
+const seemsLikeAppId = apiKey.includes(":"); // App IDs tem ':' (ex: 1:1234:web:...)
+const isPlaceholder = apiKey.includes("AIzaSy...SUA_CHAVE_AQUI");
+
+if (apiKey && !seemsLikeAppId && !isPlaceholder) {
     try {
         app = initializeApp(firebaseConfig);
         authInstance = getAuth(app);
         dbInstance = getFirestore(app);
         provider = new GoogleAuthProvider();
-        console.log("🔥 Firebase inicializado (Modo Real).");
+        isConfigured = true;
+        console.log("🔥 Firebase inicializado com sucesso!");
     } catch (error) {
-        console.error("Erro ao inicializar Firebase:", error);
+        console.error("❌ Erro fatal ao inicializar Firebase:", error);
     }
 } else {
-    console.warn("⚠️ ATENÇÃO: Firebase não configurado no arquivo firebase-service.js.");
-    console.warn("O login e o salvamento na nuvem NÃO funcionarão até você preencher as chaves.");
+    console.error("⚠️ ERRO DE CONFIGURAÇÃO DO FIREBASE ⚠️");
+    if (seemsLikeAppId) {
+        console.error("👉 Você colocou o 'App ID' no lugar da 'apiKey'.");
+        console.error("   A apiKey correta começa com 'AIza...' e pode ser encontrada no Firebase Console > Configurações do Projeto.");
+    } else if (isPlaceholder) {
+        console.error("👉 Você precisa substituir 'AIzaSy...SUA_CHAVE_AQUI' pela sua chave real.");
+    }
+    
+    // Tenta avisar na interface se possível
+    setTimeout(() => {
+        const errorMsg = document.getElementById('config-error-msg');
+        if (errorMsg) {
+            errorMsg.style.display = 'block';
+            errorMsg.innerText = seemsLikeAppId 
+                ? "Erro: Você usou o ID do App em vez da API Key." 
+                : "Erro: Configure a API Key no arquivo firebase-service.js";
+        }
+    }, 1000);
 }
 
 // --- SERVIÇO DE AUTENTICAÇÃO ---
@@ -46,7 +84,7 @@ if (isConfigured) {
 export const auth = {
     async signInWithGoogle() {
         if (!isConfigured) {
-            alert("Erro de Configuração: Adicione suas chaves do Firebase no arquivo 'firebase-service.js' para fazer login.");
+            alert("CONFIGURAÇÃO INCOMPLETA: Verifique o console do navegador (F12) para ver qual chave está errada.");
             return;
         }
         try {
@@ -54,6 +92,12 @@ export const auth = {
             return result.user;
         } catch (error) {
             console.error("Erro no login Google:", error);
+            // Tratamento de erro comum: Domínio não autorizado
+            if (error.code === 'auth/unauthorized-domain') {
+                alert("Domínio não autorizado! Vá no Firebase Console > Authentication > Settings > Authorized Domains e adicione este site.");
+            } else {
+                alert(`Erro de Login: ${error.message}`);
+            }
             throw error;
         }
     },
@@ -85,8 +129,6 @@ export const db = {
         if (!isConfigured || !userId) return;
 
         try {
-            // Salva na coleção "users", documento com ID do usuário
-            // O conteúdo fica dentro do campo "contentArray"
             await setDoc(doc(dbInstance, "users", userId), { 
                 contentArray: data,
                 lastUpdated: new Date()
