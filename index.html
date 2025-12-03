@@ -30,7 +30,7 @@
         <div class="login-card">
             <div class="login-icon">🎬</div>
             <h1>Organizador de Conteúdo</h1>
-            <p>Faça login para gerenciar e salvar seus vídeos na nuvem.</p>
+            <p>Faça login para sincronizar ou entre como visitante para salvar localmente.</p>
             
             <button id="btn-login-google" class="btn-google">
                 <svg class="google-icon" viewBox="0 0 24 24">
@@ -41,18 +41,25 @@
                 </svg>
                 Entrar com Google
             </button>
+
+            <div class="divider">ou</div>
+
+            <button id="btn-login-guest" class="btn-guest">
+                Continuar sem Login (Modo Visitante)
+            </button>
+            
             <p id="config-error-msg" style="color: #ef4444; font-size: 0.8rem; margin-top: 15px; display: none;">
                 ⚠️ Verificando configuração...
             </p>
         </div>
     </section>
 
-    <!-- APP CONTENT (Visível apenas quando logado) -->
+    <!-- APP CONTENT (Visível apenas quando logado ou visitante) -->
     <div id="app-content" style="display: none;">
         <header class="app-header">
             <div class="header-left">
                 <h1>Organizador de Conteúdo</h1>
-                <p>Planeje e organize seus vídeos (Salvo automaticamente).</p>
+                <p>Planeje e organize seus vídeos.</p>
             </div>
             
             <div id="user-profile" class="user-profile">

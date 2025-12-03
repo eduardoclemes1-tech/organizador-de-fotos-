@@ -1,3 +1,4 @@
+
 // Importações corretas para Firebase Modular (v10+)
 import { initializeApp } from "firebase/app";
 import { 
@@ -35,7 +36,6 @@ let provider;
 
 // --- Inicialização Robusta ---
 try {
-    // Inicializa sem bloqueios artificiais para permitir que o Firebase reporte seus próprios erros
     app = initializeApp(firebaseConfig);
     authInstance = getAuth(app);
     dbInstance = getFirestore(app);
@@ -43,7 +43,6 @@ try {
     console.log("🔥 Firebase: Serviços inicializados.");
 } catch (error) {
     console.error("❌ ERRO CRÍTICO FIREBASE:", error);
-    alert("Erro crítico na configuração do Firebase. Verifique o console.");
 }
 
 // --- SERVIÇO DE AUTENTICAÇÃO ---
@@ -51,7 +50,7 @@ try {
 export const auth = {
     async signInWithGoogle() {
         if (!authInstance) {
-            alert("Firebase não foi inicializado corretamente. Verifique a API KEY.");
+            alert("Firebase não inicializado. Use o Modo Visitante.");
             return;
         }
         try {
@@ -60,15 +59,13 @@ export const auth = {
         } catch (error) {
             console.error("Erro no login Google:", error);
             
-            // Mensagens de erro amigáveis
-            let msg = `Erro de Login: ${error.message}`;
+            let msg = `Erro de Login (${error.code}): ${error.message}`;
             
-            if (error.code === 'auth/api-key-not-valid') {
-                msg = "A API Key informada no arquivo 'firebase-service.js' é inválida.";
-            } else if (error.code === 'auth/configuration-not-found') {
-                msg = "O Login Google não está ativado no console do Firebase.";
-            } else if (error.code === 'auth/unauthorized-domain') {
-                msg = "Este domínio não está autorizado no Firebase Authentication.";
+            // Tratamento específico para Domínio Não Autorizado (comum no GitHub Pages)
+            if (error.code === 'auth/unauthorized-domain' || error.message.includes('unauthorized domain') || error.code === 412) {
+                msg = `⛔ DOMÍNIO NÃO AUTORIZADO!\n\nVocê precisa ir no Firebase Console -> Authentication -> Settings -> Authorized Domains e adicionar este domínio:\n\n${window.location.hostname}\n\nEnquanto isso, use o botão "Modo Visitante" para testar o app.`;
+            } else if (error.code === 'auth/api-key-not-valid') {
+                msg = "A API Key informada é inválida. Use o Modo Visitante.";
             }
             
             alert(msg);
@@ -87,8 +84,6 @@ export const auth = {
 
     onAuthStateChanged(callback) {
         if (!authInstance) {
-            // Se falhou ao iniciar, retorna null para manter o usuário na tela de login
-            console.warn("Auth instance não disponível para listener.");
             callback(null);
             return;
         }
@@ -105,7 +100,6 @@ export const db = {
         if (!dbInstance || !userId) return;
 
         try {
-            // Salva na coleção 'users', documento = ID do usuário
             await setDoc(doc(dbInstance, "users", userId), { 
                 contentArray: data,
                 lastUpdated: new Date()
@@ -114,10 +108,6 @@ export const db = {
             console.log("☁️ Dados salvos no Firestore.");
         } catch (e) {
             console.error("Erro ao salvar no Firestore:", e);
-            
-            if (e.code === 'permission-denied') {
-                console.warn("Permissão negada. Verifique as Regras de Segurança (Rules) do Firestore.");
-            }
             throw e;
         }
     },

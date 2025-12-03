@@ -66,6 +66,13 @@ body {
     font-size: 0.95rem;
 }
 
+.divider {
+    margin: 1rem 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    position: relative;
+}
+
 .btn-google {
     background: white;
     color: #3c4043;
@@ -91,6 +98,24 @@ body {
 .google-icon {
     width: 18px;
     height: 18px;
+}
+
+.btn-guest {
+    background: transparent;
+    color: var(--text-muted);
+    border: 1px dashed var(--border-color);
+    border-radius: 4px;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    width: 100%;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-guest:hover {
+    background-color: #f1f5f9;
+    color: var(--text-main);
+    border-color: var(--text-muted);
 }
 
 /* --- APP PRINCIPAL --- */

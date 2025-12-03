@@ -8,6 +8,7 @@ const template = document.getElementById('card-template');
 const loginScreen = document.getElementById('login-screen');
 const appContent = document.getElementById('app-content');
 const btnLoginGoogle = document.getElementById('btn-login-google');
+const btnLoginGuest = document.getElementById('btn-login-guest');
 const userProfile = document.getElementById('user-profile');
 const userAvatar = document.getElementById('user-avatar');
 const userName = document.getElementById('user-name');
@@ -17,14 +18,14 @@ const btnLogout = document.getElementById('btn-logout');
 import { auth, db as firestore } from './firebase-service.js';
 import { generateContent } from './ai-service.js';
 
-// Configurações do IndexedDB (para arquivos de mídia pesados que não vão pro Firestore)
+// Configurações do IndexedDB (para arquivos de mídia pesados)
 const DB_NAME = 'VideoManagerDB';
 const DB_VERSION = 2;
 const DB_STORE_NAME = 'media_content';
 
 let currentUser = null; 
 
-// --- CAMADA DE BANCO DE DADOS LOCAL (Mídia) ---
+// --- CAMADA DE BANCO DE DADOS LOCAL (Mídia via IndexedDB) ---
 let db;
 
 function initDB() {
@@ -106,9 +107,9 @@ function showToast(message) {
     setTimeout(() => { toast.className = toast.className.replace('show', ''); }, 3000);
 }
 
-// --- PERSISTÊNCIA DE DADOS (Firestore) ---
+// --- PERSISTÊNCIA DE DADOS (Híbrida: Firestore ou LocalStorage) ---
 
-async function saveContentToCloud() {
+async function saveContent() {
     if (!currentUser) return;
 
     const cards = contentList.querySelectorAll('.content-card');
@@ -137,15 +138,20 @@ async function saveContentToCloud() {
     });
 
     try {
-        await firestore.saveUserContent(currentUser.uid, dataArray);
-        console.log("Sincronizado com Firestore");
+        if (currentUser.isGuest) {
+            localStorage.setItem('guest_content', JSON.stringify(dataArray));
+            console.log("Salvo localmente (Visitante)");
+        } else {
+            await firestore.saveUserContent(currentUser.uid, dataArray);
+            console.log("Sincronizado com Firestore");
+        }
     } catch (error) {
-        console.error("Erro ao sincronizar:", error);
-        showToast("⚠️ Erro ao salvar na nuvem");
+        console.error("Erro ao salvar:", error);
+        showToast("⚠️ Erro ao salvar dados");
     }
 }
 
-async function loadContentFromCloud() {
+async function loadContent() {
     if (!currentUser) return;
     
     contentList.innerHTML = '';
@@ -158,16 +164,22 @@ async function loadContentFromCloud() {
     contentList.appendChild(loadingMsg);
 
     try {
-        const dataArray = await firestore.loadUserContent(currentUser.uid);
+        let dataArray = [];
+
+        if (currentUser.isGuest) {
+            const localData = localStorage.getItem('guest_content');
+            if (localData) dataArray = JSON.parse(localData);
+        } else {
+            dataArray = await firestore.loadUserContent(currentUser.uid);
+        }
+
         contentList.innerHTML = ''; // Limpa loading
 
         if (Array.isArray(dataArray) && dataArray.length > 0) {
-            // Renderiza cards (invertido para mais recente no topo se quiser, ou mantém ordem)
             for (const item of dataArray) {
                 await createNewCard(item);
             }
         } else {
-            // Se não tiver nada, cria um vazio
             createNewCard(); 
         }
     } catch (error) {
@@ -191,7 +203,6 @@ async function createNewCard(initialData = null) {
     const btnAiGenerate = card.querySelector('.btn-ai-generate');
     const captionInput = card.querySelector('.output-caption');
     const hashtagInput = card.querySelector('.input-hashtags');
-    const hashtagError = card.querySelector('.hashtag-error');
     const btnDelete = card.querySelector('.btn-delete');
     
     // Mídia
@@ -246,7 +257,7 @@ async function createNewCard(initialData = null) {
     let debounceTimer;
     const autoSave = () => {
         clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => saveContentToCloud(), 1000);
+        debounceTimer = setTimeout(() => saveContent(), 1000);
     };
 
     [dateInput, contextInput, captionInput, hashtagInput].forEach(input => {
@@ -274,7 +285,7 @@ async function createNewCard(initialData = null) {
             const tags = Array.isArray(result.hashtags) ? result.hashtags.join(' ') : result.hashtags;
             hashtagInput.value = tags;
             showToast("✨ Conteúdo gerado!");
-            saveContentToCloud();
+            saveContent();
         } catch (error) {
             console.error(error);
             showToast("❌ Erro na IA");
@@ -297,7 +308,7 @@ async function createNewCard(initialData = null) {
             if(!contextInput.value) contextInput.value = file.name.split('.')[0];
 
             await saveMediaToDB(cardId, 'video', file);
-            saveContentToCloud();
+            saveContent();
         }
     });
 
@@ -311,7 +322,7 @@ async function createNewCard(initialData = null) {
             thumbNameLabel.innerText = "Capa: " + file.name;
 
             await saveMediaToDB(cardId, 'thumbnail', file);
-            saveContentToCloud();
+            saveContent();
         }
     });
 
@@ -320,42 +331,76 @@ async function createNewCard(initialData = null) {
         if(confirm('Remover este item?')) {
             card.remove();
             await deleteMediaFromDB(cardId);
-            saveContentToCloud();
+            saveContent();
         }
     });
 
     contentList.prepend(card);
 }
 
-// --- FLUXO DE AUTENTICAÇÃO ---
+// --- FLUXO DE AUTENTICAÇÃO E LOGIN ---
 
+// 1. Monitora Login do Firebase
 auth.onAuthStateChanged((user) => {
+    // Se o usuário clicou em "Visitante", ignoramos o estado do Firebase
+    if (currentUser && currentUser.isGuest) return;
+
     if (user) {
-        currentUser = user;
-        loginScreen.style.display = 'none';
-        appContent.style.display = 'block';
-        userAvatar.src = user.photoURL || 'https://via.placeholder.com/36';
-        userName.textContent = user.displayName;
-        
-        initDB().then(() => loadContentFromCloud());
+        setupSession(user);
     } else {
-        currentUser = null;
-        loginScreen.style.display = 'flex';
-        appContent.style.display = 'none';
-        contentList.innerHTML = '';
+        // Se não tiver user e não for guest, mostra login
+        if (!currentUser) showLoginScreen();
     }
 });
 
+function setupSession(user) {
+    currentUser = user;
+    loginScreen.style.display = 'none';
+    appContent.style.display = 'block';
+    
+    userAvatar.src = user.photoURL || 'https://ui-avatars.com/api/?name=' + (user.displayName || 'User');
+    userName.textContent = user.displayName || 'Visitante';
+    
+    initDB().then(() => loadContent());
+}
+
+function showLoginScreen() {
+    currentUser = null;
+    loginScreen.style.display = 'flex';
+    appContent.style.display = 'none';
+    contentList.innerHTML = '';
+}
+
+// 2. Botão Login Google
 btnLoginGoogle.addEventListener('click', async () => {
     try {
         await auth.signInWithGoogle();
     } catch (error) {
-        showToast("❌ Erro ao logar. Verifique console.");
+        showToast("❌ Falha no login Google.");
     }
 });
 
+// 3. Botão Modo Visitante
+if (btnLoginGuest) {
+    btnLoginGuest.addEventListener('click', () => {
+        const guestUser = {
+            uid: 'guest-' + Date.now(),
+            displayName: 'Visitante (Offline)',
+            photoURL: null,
+            isGuest: true
+        };
+        setupSession(guestUser);
+        showToast("Modo Visitante Ativado");
+    });
+}
+
+// 4. Logout
 btnLogout.addEventListener('click', async () => {
-    await auth.signOut();
+    if (currentUser && currentUser.isGuest) {
+        showLoginScreen();
+    } else {
+        await auth.signOut();
+    }
 });
 
 btnNew.addEventListener('click', () => createNewCard());
