@@ -6,7 +6,9 @@ import {
     signInWithPopup, 
     GoogleAuthProvider, 
     signOut as firebaseSignOut, 
-    onAuthStateChanged as firebaseOnAuthStateChanged 
+    onAuthStateChanged as firebaseOnAuthStateChanged,
+    setPersistence,
+    browserLocalPersistence
 } from "firebase/auth";
 import { 
     getFirestore, 
@@ -50,25 +52,49 @@ try {
 export const auth = {
     async signInWithGoogle() {
         if (!authInstance) {
-            alert("Firebase não inicializado. Use o Modo Visitante.");
+            alert("Firebase não inicializado. Verifique sua conexão ou configuração.");
             return;
         }
+
         try {
+            // 1. Força a persistência LOCAL (Login mantém mesmo fechando o navegador)
+            await setPersistence(authInstance, browserLocalPersistence);
+
+            // 2. Tenta fazer o login com Popup
             const result = await signInWithPopup(authInstance, provider);
             return result.user;
+
         } catch (error) {
-            console.error("Erro no login Google:", error);
+            console.error("Erro detalhado no login Google:", error);
             
-            let msg = `Erro de Login (${error.code}): ${error.message}`;
+            let title = "❌ Erro de Login";
+            let msg = error.message;
+
+            // --- TRATAMENTO DE ERROS COMUNS DE CONFIGURAÇÃO ---
             
-            // Tratamento específico para Domínio Não Autorizado (comum no GitHub Pages)
-            if (error.code === 'auth/unauthorized-domain' || error.message.includes('unauthorized domain') || error.code === 412) {
-                msg = `⛔ DOMÍNIO NÃO AUTORIZADO!\n\nVocê precisa ir no Firebase Console -> Authentication -> Settings -> Authorized Domains e adicionar este domínio:\n\n${window.location.hostname}\n\nEnquanto isso, use o botão "Modo Visitante" para testar o app.`;
-            } else if (error.code === 'auth/api-key-not-valid') {
-                msg = "A API Key informada é inválida. Use o Modo Visitante.";
+            // Caso 1: O domínio (localhost ou github.io) não está na lista permitida
+            if (error.code === 'auth/unauthorized-domain' || error.message.includes('unauthorized domain')) {
+                title = "⛔ DOMÍNIO BLOQUEADO PELO FIREBASE";
+                msg = `Para segurança, o Firebase bloqueou este login.\n\nSOLUÇÃO:\n1. Vá no Firebase Console -> Authentication -> Settings -> Authorized Domains.\n2. Adicione este domínio: ${window.location.hostname}\n3. Tente novamente.`;
+            } 
+            // Caso 2: O provedor "Google" não foi ativado
+            else if (error.code === 'auth/operation-not-allowed') {
+                title = "⛔ LOGIN GOOGLE DESATIVADO";
+                msg = `Você não ativou o login com Google no painel.\n\nSOLUÇÃO:\n1. Vá no Firebase Console -> Authentication -> Sign-in method.\n2. Habilite o provedor "Google".`;
             }
-            
-            alert(msg);
+            // Caso 3: Popup bloqueado pelo navegador
+            else if (error.code === 'auth/popup-blocked') {
+                title = "⚠️ POPUP BLOQUEADO";
+                msg = "O navegador bloqueou a janela de login. Por favor, permita popups para este site.";
+            }
+            // Caso 4: Chave de API inválida
+            else if (error.code === 'auth/invalid-api-key') {
+                title = "🔑 CHAVE DE API INVÁLIDA";
+                msg = "A 'apiKey' no arquivo firebase-service.js está incorreta ou foi deletada no console.";
+            }
+
+            // Exibe alerta amigável e detalhado
+            alert(`${title}\n\n${msg}`);
             throw error;
         }
     },
@@ -108,6 +134,10 @@ export const db = {
             console.log("☁️ Dados salvos no Firestore.");
         } catch (e) {
             console.error("Erro ao salvar no Firestore:", e);
+            // Se falhar permissão, avisa mas não trava
+            if (e.code === 'permission-denied') {
+                console.warn("⚠️ Permissão negada no Firestore. Verifique as Regras de Segurança (Rules).");
+            }
             throw e;
         }
     },
